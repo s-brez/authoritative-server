@@ -28,7 +28,6 @@
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Sync</ExceptionHandling>
     </ClCompile>
     <ClCompile Include="player.cpp" />
-    <ClCompile Include="server.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core.h" />

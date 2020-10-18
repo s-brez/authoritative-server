@@ -19,7 +19,6 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="client.cpp" />
     <ClCompile Include="core.cpp" />
     <ClCompile Include="graphics.cpp" />
     <ClCompile Include="maths.cpp" />

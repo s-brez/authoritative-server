@@ -155,8 +155,8 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	}
 
 	// Create server in another thread
-	std::atomic_bool server_should_run = true;
-	std::thread server_thread(&server_main, &server_should_run);
+	// std::atomic_bool server_should_run = true;
+	// std::thread server_thread(&server_main, &server_should_run);
 
 	Linear_Allocator allocator;
 	linear_allocator_create(&allocator, megabytes(16));
@@ -421,8 +421,8 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	Net::socket_send(&sock, socket_buffer, leave_msg_size, &server_endpoint);
 	Net::socket_close(&sock);
 
-	server_should_run = false;
-	server_thread.join();
+	// server_should_run = false;
+	// server_thread.join();
 
 	return exit_code;
 }

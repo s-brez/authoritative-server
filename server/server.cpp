@@ -1,13 +1,31 @@
+#include <atomic>
+#include <cmath>
+#include <cstdio>
+#include <ctime>
 #include <iostream>
+#include <thread>
 
 #include "server.h"
-
 #include "core.h"
 #include "net.h"
 #include "net_msgs.h"
 #include "player.h"
 
 
+int  WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+	
+	// Init sockets
+	if (!Net::init()) {
+		log("[server] Net::init() failed");
+		return 0;
+	}
+
+	// Init server
+	std::atomic_bool server_should_run = true;
+	server_main(&server_should_run);
+	
+	return 0;
+}
 
 void server_main(std::atomic_bool* should_run)	{
 	Linear_Allocator allocator;
@@ -23,6 +41,8 @@ void server_main(std::atomic_bool* should_run)	{
 	Net::IP_Endpoint local_endpoint = {};
 	local_endpoint.address = INADDR_ANY;
 	local_endpoint.port = c_port;
+	
+	log("[server] Listening on %u:%u\n", local_endpoint.address, local_endpoint.port);
 
 	if (!Net::socket_bind(&sock, &local_endpoint))	{
 		log("[server] Net::socket_bind() failed");
@@ -56,6 +76,7 @@ void server_main(std::atomic_bool* should_run)	{
 			// Read and process all available packets
 			uint32 bytes_received;
 			Net::IP_Endpoint from;
+			
 			while (Net::socket_receive(&sock, socket_buffer, c_socket_buffer_size, &bytes_received, &from))	{
 			
 				switch ((Net::Client_Message)socket_buffer[0])	{
@@ -111,7 +132,7 @@ void server_main(std::atomic_bool* should_run)	{
 							char client_endpoint_str[22];
 							ip_endpoint_to_str(from_str, sizeof(from_str), &from);
 							ip_endpoint_to_str(client_endpoint_str, sizeof(client_endpoint_str), &client_endpoints[slot]);
-							log("[server] Client_Message::Leave from %hu(%s), espected (%s)\n", 
+							log("[server] Client_Message::Leave from %hu(%s), expected (%s)\n", 
 								slot, from_str, client_endpoint_str);
 						}
 					}
