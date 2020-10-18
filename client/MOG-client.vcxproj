@@ -24,7 +24,9 @@
     <ClCompile Include="graphics.cpp" />
     <ClCompile Include="maths.cpp" />
     <ClCompile Include="net.cpp" />
-    <ClCompile Include="net_msgs.cpp" />
+    <ClCompile Include="net_msgs.cpp">
+      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Sync</ExceptionHandling>
+    </ClCompile>
     <ClCompile Include="player.cpp" />
     <ClCompile Include="server.cpp" />
   </ItemGroup>
@@ -174,7 +176,7 @@ $(VULKAN_SDK)\bin\glslangValidator.exe %(Identity) -G -o ..\data\shaders\%(Filen
       <SupportJustMyCode>false</SupportJustMyCode>
       <MinimalRebuild>
       </MinimalRebuild>
-      <ExceptionHandling>false</ExceptionHandling>
+      <ExceptionHandling>Sync</ExceptionHandling>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

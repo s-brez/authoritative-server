@@ -13,41 +13,35 @@
 
 
 
-struct Client_Input
-{
+struct Client_Input	{
 	bool32 has_focus;
 	int32 mouse_x, mouse_y, mouse_delta_x, mouse_delta_y;
 	bool32 keys[256];
 };
 
-struct Client_Globals
-{
+struct Client_Globals {
 	Client_Input input;
 };
 
-static Client_Globals* get_client_globals(HWND window_handle)
-{
+static Client_Globals* get_client_globals(HWND window_handle) {
 	return (Client_Globals*)GetWindowLongPtr(window_handle, 0);
 }
 
-// todo(jbr) input thread?
-LRESULT CALLBACK window_callback(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
-{
+LRESULT CALLBACK window_callback(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param) {
 	Client_Globals* globals = get_client_globals(window_handle);
 
-	switch (message)
-	{
+	switch (message) {
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
 
 		case WM_KEYDOWN:
-			if (globals->input.has_focus)
-			{
+			if (globals->input.has_focus) {
+				
 				assert(w_param < 256);
 				globals->input.keys[w_param] = 1;
-				if (w_param == VK_ESCAPE)
-				{
+				
+				if (w_param == VK_ESCAPE) {
 					ShowCursor(true);
 					globals->input.has_focus = 0;
 				}
@@ -155,11 +149,12 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	UINT sleep_granularity_ms = 1;
 	bool32 sleep_granularity_was_set = timeBeginPeriod(sleep_granularity_ms) == TIMERR_NOERROR;
 
-	if (!Net::init())
-	{
+	// Init Winsock layer before starting server
+	if (!Net::init()) {
 		return 0;
 	}
 
+	// Create server in another thread
 	std::atomic_bool server_should_run = true;
 	std::thread server_thread(&server_main, &server_should_run);
 
@@ -169,31 +164,35 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	Linear_Allocator temp_allocator;
 	linear_allocator_create_sub_allocator(&allocator, &temp_allocator, megabytes(8));
 
+	// Allocate memory for global vars
 	Client_Globals* client_globals = (Client_Globals*)linear_allocator_alloc(&allocator, sizeof(Client_Globals));
 	client_globals->input = {};
 
 	SetWindowLongPtr(window_handle, 0, (LONG_PTR)client_globals);
 	
-	// init graphics
+	// Init graphics
 	Graphics::State* graphics_state = (Graphics::State*)linear_allocator_alloc(&allocator, sizeof(Graphics::State));
 	Graphics::init(graphics_state, window_handle, instance, 
 					c_window_width, c_window_height, c_max_clients,
 					&allocator, &temp_allocator);
 
+	// Init socket and set artificial lag
 	Net::Socket sock;
-	if (!Net::socket(&sock))
-	{
+	if (!Net::socket(&sock)){
 		return 0;
 	}
 	Net::socket_set_fake_lag_s(&sock, 0.2f, &allocator); // 200ms of fake lag
 
+	// Init socket buffer
 	constexpr uint32 c_socket_buffer_size = c_packet_budget_per_tick;
 	uint8* socket_buffer = linear_allocator_alloc(&allocator, c_socket_buffer_size);
+
+	// Set server IP endpoint
 	Net::IP_Endpoint server_endpoint = Net::ip_endpoint(127, 0, 0, 1, c_port);
 
+
 	uint32 join_msg_size = Net::client_msg_join_write(socket_buffer);
-	if (!Net::socket_send(&sock, socket_buffer, join_msg_size, &server_endpoint))
-	{
+	if (!Net::socket_send(&sock, socket_buffer, join_msg_size, &server_endpoint)) {
 		return 0;
 	}
 
@@ -206,16 +205,15 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	*local_player_snapshot_state = {};
 	*local_player_extra_state = {};
 
-	struct Predicted_Move
-	{
+	struct Predicted_Move {
 		float32 dt;
 		Player_Input input;
 	};
-	struct Predicted_Move_Result
-	{
+	struct Predicted_Move_Result {
 		Player_Snapshot_State snapshot_state;
 		Player_Extra_State extra_state;
 	};
+
 	constexpr int32			c_prediction_buffer_capacity	= 512;
 	constexpr int32			c_prediction_buffer_mask		= c_prediction_buffer_capacity - 1;
 	Predicted_Move*			predicted_move					= (Predicted_Move*)linear_allocator_alloc(&allocator, sizeof(Predicted_Move) * c_prediction_buffer_capacity);
@@ -236,10 +234,10 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 
 	Timer tick_timer = timer();
 	
-	// main loop
+	// Main loop
 	int exit_code = 0;
-	while (true)
-	{
+	while (true) {
+
 		// Windows messages
 		bool32 got_quit_message = 0;
 		MSG message;
@@ -247,10 +245,8 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 		UINT filter_min = 0;
 		UINT filter_max = 0;
 		UINT remove_message = PM_REMOVE;
-		while (PeekMessage(&message, hwnd, filter_min, filter_max, remove_message))
-		{
-			if (message.message == WM_QUIT)
-			{
+		while (PeekMessage(&message, hwnd, filter_min, filter_max, remove_message)) {
+			if (message.message == WM_QUIT) {
 				exit_code = (int)message.wParam;
 				got_quit_message = 1;
 				break;
@@ -258,12 +254,11 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 			TranslateMessage(&message);
 			DispatchMessage(&message);
 		}
-		if (got_quit_message)
-		{
+		if (got_quit_message) {
 			break;
 		}
 
-		// consume mouse deltas from input so it resets every tick
+		// Consume mouse deltas from input so it resets every tick
 		int32 mouse_delta_x = client_globals->input.mouse_delta_x;
 		int32 mouse_delta_y = client_globals->input.mouse_delta_y;
 		client_globals->input.mouse_delta_x = 0; 
@@ -280,15 +275,13 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 				{
 					bool32 success;
 					Net::server_msg_join_result_read(socket_buffer, &success, &local_player_slot);
-					if (!success)
-					{
+					if (!success) {
 						log("[client] server didn't let us in\n");
 					}
 				}
 				break;
 
-				case Net::Server_Message::State:
-				{
+				case Net::Server_Message::State: {
 					uint32 received_prediction_id;
 					Player_Extra_State received_local_player_extra_state;
 					Net::server_msg_state_read(
@@ -301,7 +294,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 
 					int32 ticks_ahead = prediction_id - received_prediction_id;
 					assert(ticks_ahead > -1);
-					assert(ticks_ahead <= c_prediction_buffer_capacity); // todo(jbr) cope better with this case
+					assert(ticks_ahead <= c_prediction_buffer_capacity);
 					
 					Player_Snapshot_State* received_local_player_snapshot_state = &player_snapshot_states[local_player_slot];
 
@@ -309,8 +302,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 					Vec_3f delta_pos = vec_3f_sub(received_local_player_snapshot_state->position, predicted_move_result[index].snapshot_state.position);
 					constexpr float32 c_max_error = 0.001f; // 0.1cm
 					constexpr float32 c_max_error_sq = c_max_error * c_max_error;
-					if (vec_3f_length_sq(delta_pos) > c_max_error_sq)
-					{
+					if (vec_3f_length_sq(delta_pos) > c_max_error_sq) {
 						log("[client]error of (%f, %f, %f) detected at prediction id %d, rewinding and replaying\n", delta_pos.x, delta_pos.y, delta_pos.z, received_prediction_id);
 						
 						*local_player_snapshot_state = *received_local_player_snapshot_state;
@@ -318,8 +310,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 
 						for (uint32 replaying_prediction_id = received_prediction_id + 1; 
 							replaying_prediction_id < prediction_id; 
-							++replaying_prediction_id)
-						{
+							++replaying_prediction_id) {
 							uint32					replaying_index			= replaying_prediction_id & c_prediction_buffer_mask;
 
 							Predicted_Move*			replaying_move			= &predicted_move[replaying_index];
@@ -339,10 +330,8 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 			}
 		}
 
-		
-		// tick player if we have one
-		if (local_player_slot != (uint32)-1)
-		{
+		// Tick player if we have one
+		if (local_player_slot != (uint32)-1) {
 			constexpr float32 c_mouse_sensitivity = 0.003f;
 
 			Player_Input player_input = {};
@@ -410,10 +399,9 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 		Matrix_4x4 temp_model_matrix;
 		for (bool32* players_present_iter = &players_present[0];
 			players_present_iter != players_present_end;
-			++players_present_iter, ++player_snapshot_state)
-		{
-			if (*players_present_iter)
-			{
+			++players_present_iter, ++player_snapshot_state) {
+			
+			if (*players_present_iter) {
 				matrix_4x4_rotation_z(&temp_rotation_matrix, player_snapshot_state->yaw);
 				matrix_4x4_translation(&temp_translation_matrix, player_snapshot_state->position);
 				matrix_4x4_mul(&temp_model_matrix, &temp_translation_matrix, &temp_rotation_matrix);

@@ -940,7 +940,7 @@ void init(	State* out_state,
 	out_state->cube_num_indices = c_num_indices;
 
 	// Create scenery, just need something to give a sense of movement
-	constexpr uint32 c_floor_tiles_count = 50;
+	constexpr uint32 c_floor_tiles_count = 5;
 	constexpr uint32 c_floor_tiles_total = c_floor_tiles_count * c_floor_tiles_count;
 	constexpr float32 c_floor_tile_size = 1.0f;
 	constexpr float32 c_floor_tile_spacing = 0.5f;
@@ -988,8 +988,7 @@ void init(	State* out_state,
 
 void update_and_draw(State* state, Matrix_4x4* matrices, uint32 num_players)
 {
-	if (!num_players)
-	{
+	if (!num_players){
 		return;
 	}
 
@@ -1070,8 +1069,7 @@ void update_and_draw(State* state, Matrix_4x4* matrices, uint32 num_players)
 	vkCmdBindVertexBuffers(state->command_buffers[image_index], 0, 1, &state->cube_vertex_buffer, &offset);
 	vkCmdBindIndexBuffer(state->command_buffers[image_index], state->cube_index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-	for (uint32 i = 0; i < num_players; ++i)
-	{
+	for (uint32 i = 0; i < num_players; ++i) {
 		first_set = 0;
 		descriptor_set_count = 1;
 		dynamic_offset_count = 1;
