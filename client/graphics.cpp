@@ -900,9 +900,9 @@ namespace Graphics {
 		out_state->cube_num_indices = c_num_indices;
 
 		// Create scenery, just need something to give a sense of movement
-		constexpr uint32 c_floor_tiles_count = 5;
+		constexpr uint32 c_floor_tiles_count = 20;
 		constexpr uint32 c_floor_tiles_total = c_floor_tiles_count * c_floor_tiles_count;
-		constexpr float32 c_floor_tile_size = 1.0f;
+		constexpr float32 c_floor_tile_size = 0.5f;
 		constexpr float32 c_floor_tile_spacing = 0.75f;
 		constexpr uint32 c_num_scenery_vertices = c_floor_tiles_total * 4;
 		constexpr uint32 c_num_scenery_indices = c_floor_tiles_total * 6;

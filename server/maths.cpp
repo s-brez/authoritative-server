@@ -95,7 +95,7 @@ Quat quat_euler(Vec_3f euler)
 	Quat pitch = quat_angle_axis(vec_3f(1.0f, 0.0f, 0.0f), euler.x);
 	Quat yaw = quat_angle_axis(vec_3f(0.0f, 1.0f, 0.0f), euler.y);
 	Quat roll = quat_angle_axis(vec_3f(0.0f, 0.0f, 1.0f), euler.z);
-	
+
 	// do roll, then pitch, then yaw
 	return quat_mul(yaw, quat_mul(pitch, roll));
 }
@@ -107,7 +107,7 @@ Vec_3f quat_mul(Quat q, Vec_3f v)
 	float32 x = (q.scalar * q.scalar * v.x) + (-2.0f * q.scalar * q.yx * v.y) + (2.0f * q.scalar * -q.xz * v.z) + (-q.zy * -q.zy * v.x) + (2.0f * -q.zy * -q.xz * v.y) + (2.0f * -q.zy * q.yx * v.z) + (-1.0f * -q.xz * -q.xz * v.x) + (-1.0f * q.yx * q.yx * v.x);
 	float32 y = (2.0f * q.scalar * q.yx * v.x) + (q.scalar * q.scalar * v.y) + (-2.0f * q.scalar * -q.zy * v.z) + (2.0f * -q.zy * -q.xz * v.x) + (-1.0f * -q.zy * -q.zy * v.y) + (-q.xz * -q.xz * v.y) + (2.0f * -q.xz * q.yx * v.z) + (-1.0f * q.yx * q.yx * v.y);
 	float32 z = (-2.0f * q.scalar * -q.xz * v.x) + (2.0f * q.scalar * -q.zy * v.y) + (q.scalar * q.scalar * v.z) + (2.0f * -q.zy * q.yx * v.x) + (-1.0f * -q.zy * -q.zy * v.z) + (2.0f * -q.xz * q.yx * v.y) + (-1.0f * -q.xz * -q.xz * v.z) + (q.yx * q.yx * v.z);
-	
+
 	return vec_3f(x, y, z);
 }
 
@@ -127,23 +127,23 @@ Vec_3f quat_right(Quat q)
 {
 	// todo(jbr) on quat simplification, would it be a good idea to cache the square of each component in the struct?
 	// we can be faster than quat_mul because we know 2 components of each axis is 0
-	return vec_3f(	(q.scalar * q.scalar) + (-q.zy * -q.zy) + (-1.0f * -q.xz * -q.xz) + (-1.0f * q.yx * q.yx),
-					(2.0f * q.scalar * q.yx) + (2.0f * -q.zy * -q.xz),
-					(-2.0f * q.scalar * -q.xz) + (2.0f * -q.zy * q.yx));
+	return vec_3f((q.scalar * q.scalar) + (-q.zy * -q.zy) + (-1.0f * -q.xz * -q.xz) + (-1.0f * q.yx * q.yx),
+		(2.0f * q.scalar * q.yx) + (2.0f * -q.zy * -q.xz),
+		(-2.0f * q.scalar * -q.xz) + (2.0f * -q.zy * q.yx));
 }
 
 Vec_3f quat_forward(Quat q)
 {
-	return vec_3f(	(-2.0f * q.scalar * q.yx) + (2.0f * -q.zy * -q.xz),
-					(q.scalar * q.scalar) + (-1.0f * -q.zy * -q.zy) + (-q.xz * -q.xz) + (-1.0f * q.yx * q.yx),
-					(2.0f * q.scalar * -q.zy) + (2.0f * -q.xz * q.yx));
+	return vec_3f((-2.0f * q.scalar * q.yx) + (2.0f * -q.zy * -q.xz),
+		(q.scalar * q.scalar) + (-1.0f * -q.zy * -q.zy) + (-q.xz * -q.xz) + (-1.0f * q.yx * q.yx),
+		(2.0f * q.scalar * -q.zy) + (2.0f * -q.xz * q.yx));
 }
 
 Vec_3f quat_up(Quat q)
 {
-	return vec_3f(	(2.0f * q.scalar * -q.xz) + (2.0f * -q.zy * q.yx),
-					(-2.0f * q.scalar * -q.zy) + (2.0f * -q.xz * q.yx),
-					(q.scalar * q.scalar) + (-1.0f * -q.zy * -q.zy) + (-1.0f * -q.xz * -q.xz) + (q.yx * q.yx));
+	return vec_3f((2.0f * q.scalar * -q.xz) + (2.0f * -q.zy * q.yx),
+		(-2.0f * q.scalar * -q.zy) + (2.0f * -q.xz * q.yx),
+		(q.scalar * q.scalar) + (-1.0f * -q.zy * -q.zy) + (-1.0f * -q.xz * -q.xz) + (q.yx * q.yx));
 }
 
 
@@ -167,7 +167,7 @@ void matrix_4x4_identity(Matrix_4x4* matrix)
 	matrix->m44 = 1.0f;
 }
 
-void matrix_4x4_projection(Matrix_4x4* matrix, 
+void matrix_4x4_projection(Matrix_4x4* matrix,
 	float32 fov_y, float32 aspect_ratio,
 	float32 near_plane, float32 far_plane)
 {
@@ -341,9 +341,9 @@ void matrix_4x4_mul(Matrix_4x4* result, Matrix_4x4* a, Matrix_4x4* b)
 
 Vec_3f matrix_4x4_mul_direction(Matrix_4x4* matrix, Vec_3f v)
 {
-	return vec_3f(	(v.x * matrix->m11) + (v.y * matrix->m12) + (v.z * matrix->m13),
-					(v.x * matrix->m21) + (v.y * matrix->m22) + (v.z * matrix->m23),
-					(v.x * matrix->m31) + (v.y * matrix->m32) + (v.z * matrix->m33));
+	return vec_3f((v.x * matrix->m11) + (v.y * matrix->m12) + (v.z * matrix->m13),
+		(v.x * matrix->m21) + (v.y * matrix->m22) + (v.z * matrix->m23),
+		(v.x * matrix->m31) + (v.y * matrix->m32) + (v.z * matrix->m33));
 }
 
 void matrix_4x4_camera(Matrix_4x4* matrix, Vec_3f position, Vec_3f right, Vec_3f forward, Vec_3f up)
@@ -361,7 +361,7 @@ void matrix_4x4_camera(Matrix_4x4* matrix, Vec_3f position, Vec_3f right, Vec_3f
 	matrix->m32 = up.y;
 	matrix->m42 = 0.0f;
 	matrix->m13 = right.z;
-	matrix->m23 = forward.z;	
+	matrix->m23 = forward.z;
 	matrix->m33 = up.z;
 	matrix->m43 = 0.0f;
 	matrix->m14 = (right.x * translation.x) + (right.y * translation.y) + (right.z * translation.z);

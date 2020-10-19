@@ -36,13 +36,14 @@ namespace Net {
 	}
 
 	static void serialise_input(uint8** buffer, Player_Input* input) {
+		
 		uint8 packed_buttons =
 			(uint8)(input->up ? 1 << 0 : 0) |
 			(uint8)(input->down ? 1 << 1 : 0) |
 			(uint8)(input->left ? 1 << 2 : 0) |
 			(uint8)(input->right ? 1 << 3 : 0) |
 			(uint8)(input->jump ? 1 << 4 : 0);
-
+		
 		serialise_u8(buffer, packed_buttons);
 		serialise_f32(buffer, input->pitch);
 		serialise_f32(buffer, input->yaw);

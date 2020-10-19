@@ -9,7 +9,8 @@
 #include "net_msgs.h"
 #include "player.h"
 
-
+constexpr float32  camera_z_offset = 5.0f;
+constexpr float32  camera_y_offset = 7.0f;
 
 struct Client_Input	{
 	bool32 has_focus;
@@ -106,8 +107,7 @@ LRESULT CALLBACK window_callback(HWND window_handle, UINT message, WPARAM w_para
 	return 0;
 }
 
-int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cmd_line*/, int cmd_show)
-{
+int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cmd_line*/, int cmd_show) {
 	WNDCLASS window_class;
 	window_class.style = 0;
 	window_class.lpfnWndProc = window_callback;
@@ -118,17 +118,16 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	window_class.hCursor = 0;
 	window_class.hbrBackground = 0;
 	window_class.lpszMenuName = 0;
-	window_class.lpszClassName = "odin_window_class";
+	window_class.lpszClassName = "mog_window_class";
 
 	ATOM window_class_atom = RegisterClass(&window_class);
 
 	assert(window_class_atom);
 
-	constexpr uint32 c_window_width = 1280;
-	constexpr uint32 c_window_height = 720;
+	constexpr uint32 c_window_width = 1920;
+	constexpr uint32 c_window_height = 1080;
 
-	HWND window_handle;
-	{
+	HWND window_handle; {
 		LPCSTR 	window_name 	= "";
 		DWORD 	style 			= WS_OVERLAPPED;
 		int 	x 				= CW_USEDEFAULT;
@@ -174,7 +173,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	if (!Net::socket(&sock)){
 		return 0;
 	}
-	Net::socket_set_fake_lag_s(&sock, 0.2f, &allocator); // 200ms of fake lag
+	Net::socket_set_fake_lag_s(&sock, 0.1f, &allocator); // 100ms of fake lag
 
 	// Init socket buffer
 	constexpr uint32 c_socket_buffer_size = c_packet_budget_per_tick;
@@ -259,16 +258,15 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 		// Process Packets
 		uint32 bytes_received;
 		Net::IP_Endpoint from;
-		while (Net::socket_receive(&sock, socket_buffer, c_socket_buffer_size, &bytes_received, &from))
-		{
-			switch ((Net::Server_Message)socket_buffer[0])
-			{
-				case Net::Server_Message::Join_Result:
-				{
+		while (Net::socket_receive(&sock, socket_buffer, c_socket_buffer_size, &bytes_received, &from)) {
+			
+			switch ((Net::Server_Message)socket_buffer[0]){
+			
+				case Net::Server_Message::Join_Result: {
 					bool32 success;
 					Net::server_msg_join_result_read(socket_buffer, &success, &local_player_slot);
 					if (!success) {
-						log("[client] server didn't let us in\n");
+						log("[client] Connection to server denied\n");
 					}
 				}
 				break;
@@ -363,7 +361,9 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 		// Create view-projection matrix
 		constexpr float32 c_camera_offset_distance = 3.0f;
 		Vec_3f camera_pos = local_player_snapshot_state->position;
-		camera_pos.z += 1.8f;
+		camera_pos.y -= camera_y_offset;
+		camera_pos.z = (local_player_snapshot_state->ground + camera_z_offset); 
+		
 
 		Quat camera_rotation = quat_mul(quat_angle_axis(vec_3f(0.0f, 0.0f, 1.0f), local_player_snapshot_state->yaw),
 										quat_angle_axis(vec_3f(1.0f, 0.0f, 0.0f), local_player_snapshot_state->pitch)); // pitch THEN yaw
@@ -412,9 +412,6 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	uint32 leave_msg_size = Net::client_msg_leave_write(socket_buffer, local_player_slot);
 	Net::socket_send(&sock, socket_buffer, leave_msg_size, &server_endpoint);
 	Net::socket_close(&sock);
-
-	// server_should_run = false;
-	// server_thread.join();
 
 	return exit_code;
 }

@@ -36,6 +36,7 @@ namespace Net	{
 	}
 
 	static void serialise_input(uint8** buffer, Player_Input* input)	{
+
 		uint8 packed_buttons = 
 			(uint8)(input->up	? 1 << 0 : 0) |
 			(uint8)(input->down ? 1 << 1 : 0) |
