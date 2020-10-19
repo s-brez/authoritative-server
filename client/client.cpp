@@ -9,8 +9,10 @@
 #include "net_msgs.h"
 #include "player.h"
 
-constexpr float32  camera_z_offset = 5.0f;
+constexpr float32  camera_x_offset = 5.0f;
 constexpr float32  camera_y_offset = 7.0f;
+constexpr float32  camera_z_offset = 5.0f;
+
 
 struct Client_Input	{
 	bool32 has_focus;
@@ -361,7 +363,6 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 		// Create view-projection matrix
 		constexpr float32 c_camera_offset_distance = 3.0f;
 		Vec_3f camera_pos = local_player_snapshot_state->position;
-		camera_pos.y -= camera_y_offset;
 		camera_pos.z = (local_player_snapshot_state->ground + camera_z_offset); 
 		
 
