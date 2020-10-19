@@ -36,7 +36,6 @@
     <ClInclude Include="net.h" />
     <ClInclude Include="net_msgs.h" />
     <ClInclude Include="player.h" />
-    <ClInclude Include="server.h" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders\shader.frag">

@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="core.cpp" />
-    <ClCompile Include="graphics.cpp" />
     <ClCompile Include="maths.cpp" />
     <ClCompile Include="net.cpp" />
     <ClCompile Include="net_msgs.cpp">
@@ -31,7 +30,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core.h" />
-    <ClInclude Include="graphics.h" />
     <ClInclude Include="maths.h" />
     <ClInclude Include="net.h" />
     <ClInclude Include="net_msgs.h" />

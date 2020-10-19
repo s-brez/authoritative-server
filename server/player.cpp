@@ -13,8 +13,8 @@ constexpr float32 c_player_air_control = 2.0f;
 void tick_player(	Player_Snapshot_State* player_snapshot_state, 
 					Player_Extra_State* player_extra_state, 
 					float32 dt, 
-					Player_Input* player_input)
-{
+					Player_Input* player_input) {
+
 	// get desired movement direction, based on wasd input
 	float32 cos_yaw = cosf(player_input->yaw);
 	float32 sin_yaw = sinf(player_input->yaw);

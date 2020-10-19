@@ -1,5 +1,6 @@
-#include "net_msgs.h"
+#include <iostream>
 
+#include "net_msgs.h"
 #include "player.h"
 
 
@@ -45,6 +46,16 @@ namespace Net	{
 		serialise_u8(buffer, packed_buttons);
 		serialise_f32(buffer, input->pitch);
 		serialise_f32(buffer, input->yaw);
+	}
+
+	static void serialise_string(uint8** buffer, std::string* message) {
+		std::string msg = *message;
+		std::cout << buffer << std::endl;
+	}
+
+	static void deserialise_string(uint8** buffer, std::string* message) {
+		std::string msg = *message;
+		std::cout << buffer << std::endl;
 	}
 
 	static void serialise_player_snapshot_state(uint8** buffer, Player_Snapshot_State* player_snapshot_state)	{
@@ -151,6 +162,29 @@ namespace Net	{
 		deserialise_f32(&buffer_iter, dt);
 		deserialise_input(&buffer_iter, input);
 		deserialise_u32(&buffer_iter, prediction_id);
+	}
+
+	uint32 client_msg_message_write(uint8* buffer, uint32 slot, float32 dt, std::string* message) {
+		uint8* buffer_iter = buffer;
+
+		serialise_u8(&buffer_iter, (uint8)Client_Message::Message);
+		serialise_u32(&buffer_iter, slot);
+		serialise_f32(&buffer_iter, dt);
+		serialise_string(&buffer_iter, message);
+
+		return (uint32)(buffer_iter - buffer);
+	}
+
+	void client_msg_message_read(uint8* buffer, uint32* slot, float32* dt, std::string* message) {
+		uint8* buffer_iter = buffer;
+
+		uint8 message_type;
+		deserialise_u8(&buffer_iter, &message_type);
+		assert(message_type == (uint8)Client_Message::Message);
+
+		deserialise_u32(&buffer_iter, slot);
+		deserialise_f32(&buffer_iter, dt);
+		deserialise_string(&buffer_iter, message);
 	}
 
 	uint32 server_msg_join_result_write(uint8* buffer, bool32 success, uint32 slot)		{

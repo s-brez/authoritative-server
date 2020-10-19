@@ -20,7 +20,6 @@ int  WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		return 0;
 	}
 
-	// Init server
 	std::atomic_bool server_should_run = true;
 	server_main(&server_should_run);
 	
@@ -149,6 +148,22 @@ void server_main(std::atomic_bool* should_run)	{
 							tick_player(&player_snapshot_states[slot], &player_extra_states[slot], dt, &input);
 							
 							player_prediction_ids[slot] = prediction_id; 
+							time_since_heard_from_clients[slot] = 0.0f;
+						}
+						else {
+							log("[server] Client_Message::Input discarded, was from %u:%hu but expected %u:%hu\n", from.address, from.port, client_endpoints[slot].address, client_endpoints[slot].port);
+						}
+					}
+					break;
+
+					case Net::Client_Message::Message: {
+						uint32 slot;
+						float32 dt;
+						std::string msg;
+						Net::client_msg_message_read(socket_buffer, &slot, &dt, &msg);
+
+						if (Net::ip_endpoint_equals(&client_endpoints[slot], &from)) {
+						
 							time_since_heard_from_clients[slot] = 0.0f;
 						}
 						else {

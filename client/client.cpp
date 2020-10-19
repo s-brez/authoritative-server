@@ -1,4 +1,3 @@
-#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <ctime>
@@ -9,7 +8,6 @@
 #include "net.h"
 #include "net_msgs.h"
 #include "player.h"
-#include "server.h"
 
 
 
@@ -145,18 +143,13 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 	}
 	ShowWindow(window_handle, cmd_show);
 
-	// This stuff needs to be done before starting server thread
 	UINT sleep_granularity_ms = 1;
 	bool32 sleep_granularity_was_set = timeBeginPeriod(sleep_granularity_ms) == TIMERR_NOERROR;
 
-	// Init Winsock layer before starting server
+	// Init Winsock
 	if (!Net::init()) {
 		return 0;
 	}
-
-	// Create server in another thread
-	// std::atomic_bool server_should_run = true;
-	// std::thread server_thread(&server_main, &server_should_run);
 
 	Linear_Allocator allocator;
 	linear_allocator_create(&allocator, megabytes(16));
@@ -189,7 +182,6 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE /*prev_instance*/, LPSTR /*cm
 
 	// Set server IP endpoint
 	Net::IP_Endpoint server_endpoint = Net::ip_endpoint(127, 0, 0, 1, c_port);
-
 
 	uint32 join_msg_size = Net::client_msg_join_write(socket_buffer);
 	if (!Net::socket_send(&sock, socket_buffer, join_msg_size, &server_endpoint)) {
