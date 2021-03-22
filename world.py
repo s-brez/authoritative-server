@@ -14,26 +14,97 @@ class World():
         self.players.pop(p_ID, None)
 
     def load_rooms(self):
-        rooms = {
-            '000': {                            # 000 is the overworld
-                'dimensions': (100, 100),       # room dimensions
-                'doors': {                      # portals to other rooms
-                    '001': {
-                        'position': (50, 50),
-                        'requires': None,        # item required to enter door
-                        'unlocked': True        # traversable or not
+        """ Loads all rooms data and maps for persistent rooms. """
+
+        return {
+            100: {
+                'tag': "life_overworld",
+                'persistent': True,
+                'size': (1000, 1000, 100),
+                'doors': {
+                    1: {  # door to player home
+                        'position': (50, 50, 0),
+                        'requires': None,
+                        'unlocked': True,
+                        'destination': {
+                            'id': 101,
+                            'position': 'south'
+                        }
                     }
                 }
             },
 
-            '001': {
-                'dimensions': (20, 20),
+            101: {
+                'tag': "player_home",
+                'persistent': True,
+                'dimensions': (20, 20, 10),
                 'doors': {
-                    '000': {
-                        'position': (0, 0),
+                    1: {  # door to overworld
+                        'position': 'south',
                         'requires': None,
-                        'unlocked': True
+                        'unlocked': True,
+                        'destination': {
+                            'id': 100,
+                            'position': (10, 10)
+                        }
                     }
                 }
-            }
+            },
+
+            102: {
+                'tag': "death_overworld",
+                'persistent': True,
+                'size': (200, 5000, 100),
+                'doors': {
+                    1: {  # door to final zone
+                        'position': 'north',
+                        'requires': None,
+                        'unlocked': True,
+                        'destination': {
+                            'id': 103,
+                            'position': 'south'
+                        }
+                    },
+
+                    2: {  # door to life
+                        'position': 'south',
+                        'requires': None,
+                        'unlocked': True,
+                        'destination': {
+                            'id': 101,
+                            'position': 'player_last_position'
+                        }
+                    }
+                }
+            },
+
+            103: {
+                'tag': "death_overworld_final_zone",
+                'persistent': True,
+                'size': (500, 500, 100),
+                'doors': {
+                    1: {  # door to main zone
+                        'position': 'south',
+                        'requires': None,
+                        'unlocked': True,
+                        'destination': {
+                            'id': 103,
+                            'position': (250, 0)
+                        }
+                    }
+                }
+            },
         }
+
+
+    def load_map(self, room_id: int):
+        """ Loads a persistent map from file """
+
+        if self.rooms[room_id]['persistent']:
+                            
+
+        else:
+            return None
+
+
+    

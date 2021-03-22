@@ -1,12 +1,12 @@
 import socket
 import sys
 
-from messaging import serialize_state, deserialize_client_input
+from messaging import serialize_state, deserialize_client_input, INPUT_ITEMS
 from player import Player
 from world import World
 
 
-UDP_IP = "192.168.1.103"
+UDP_IP = "192.168.1.101"
 UDP_PORT = 55556
 BUFFER_SIZE = 1024
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -16,6 +16,9 @@ server_socket.bind((UDP_IP, UDP_PORT))
 def load_stored_game_state():  # TODO: don't hard-code this later
     p0 = Player('0')
     p1 = Player('1')
+
+    p0.goto_room('000', (1, 1, 0))
+    p1.goto_room('000', (1, 1, 0))
 
     world = World()
 
@@ -31,14 +34,24 @@ while True:
     # First byte of client message dictates what message type it is
     data, address = server_socket.recvfrom(BUFFER_SIZE)
 
-    # Player input
+    # Player input message
     if(data[:1] == b'1'):
         p_id = data[1:3].decode()
         if p_id in slots:
-            player_input = deserialize_client_input(data)
 
-            # Update player state
-                        
+            # Update game state according to player input
+            actions, target = deserialize_client_input(data)
+            for key in INPUT_ITEMS:
+                if actions[key]:
+
+                    # actions < 32 are movement
+                    if int(key) < 32:
+                        players[p_id].move(key, target)
+
+                    # actions > 32 are skills or interactions with target
+                    else:
+                        # TODO: handle skill use and interactions with target
+                        pass
 
     # Player chat message
     elif (data[:1] == b'2'):

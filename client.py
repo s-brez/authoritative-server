@@ -9,7 +9,7 @@ from world import World
 
 FPS = 60
 
-UDP_IP = "192.168.1.103"
+UDP_IP = "192.168.1.101"
 UDP_PORT = 55556
 BUFFER_SIZE = 1024
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -109,6 +109,9 @@ while running:
             'right': client_input['keys']['68'],
             'jump': client_input['keys']['Key.space'],
 
+            # use/interact
+            'use': client_input['keys']['69'],
+
             # skills
             's1': client_input['keys']['49'],
             's2': client_input['keys']['50'],
@@ -128,13 +131,10 @@ while running:
         }
 
         # Send input to server: first byte '1', next two bytes player ID,
-        # next 8 bytes target ID or 1's, lastly suffixed with packed_input
+        # next 4 bytes target ID or 4 1's. Lastly suffix with packed_input.
         packed_input = serialize_client_input(player_input)
         target_ID = player_input['target'] if player_input['target'] is not None else '1111'
         payload = "1" + player.ID + target_ID + str(packed_input)
-
-        print(payload)
-
         client_socket.sendto(payload.encode(), (UDP_IP, UDP_PORT))
 
         local_actions = {
