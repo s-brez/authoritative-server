@@ -4,7 +4,7 @@
 #include "../shared/Shared.h"
 
 #define CLIENT_DEFAULT_ADDRESS     "127.0.0.1"
-#define CLIENT_DEFAULT_PORT        8080
+#define CLIENT_DEFAULT_PORT        8081
 
 class Client
 {
