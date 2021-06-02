@@ -3,7 +3,7 @@
 // Parameters
 int main(int argc, char *argv[]) {
     
-    // Attempt to init server.
+    // Init server.
     Server server;
     if (argc == 1) {
         server = Server(SERVER_DEFAULT_ADDRESS, SERVER_DEFAULT_PORT);
@@ -15,18 +15,42 @@ int main(int argc, char *argv[]) {
         server = Server(argv[1], std::stoi(argv[2]));
     }
    
-    // Listen for packets
-    if (server.running()) std::cout << "[server] Listening for client messages" << std::endl;
+    // Buffer to hold incoming packets
+    // int* packet_buffer;
 
+    double seconds_per_tick = 1.0f / TICKS_PER_SECOND;
     while (server.running()) {
+	                
+        // Only action packets for (1 / UPDATES_PER_SECOND) seconds before pushing state updates.
+        // Once this period elapses, push state update packets to all clients and restart time cycle
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        std::chrono::system_clock::time_point finish = std::chrono::system_clock::now();
+        std::chrono::duration<double, std::milli> processing_time = start - finish;
+        while (processing_time.count() < seconds_per_tick) {
+            
+            start = std::chrono::system_clock::now();
+            processing_time = start - finish;
+            std::cout << processing_time.count() << std::endl;    
 
-        // Buffer for incoming packets
+            // Read and action new packets
+            // while (server.listen()) {
 
-        // Write packet data to buffer
+                // Buffer for incoming packets
 
-        // Action packet message
+                // Write packet data to buffer
+
+                // Action packet message
+
+            // }
+        }
+        finish = std::chrono::system_clock::now();
+
+        // Update client last-heard values
+
+        // Push state update packets back to clients
 
     }
+    
 
     return EXIT_SUCCESS;
 };

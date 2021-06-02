@@ -3,6 +3,8 @@
 
 #include "../shared/Shared.h"
 
+#define TICKS_PER_SECOND      30
+
 class Server    {
     public:
         Server();
