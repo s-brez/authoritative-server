@@ -3,7 +3,8 @@
 
 #include "../shared/Shared.h"
 
-#define TICKS_PER_SECOND      30
+// Human reaction time ~200ms, use half that as server tick rate
+#define TICKS_PER_SECOND      10
 
 class Server    {
     public:
@@ -11,7 +12,12 @@ class Server    {
         Server();
         ~Server();
 
+        // Blocking, returns only on packet receival or error.
         int                     listen(char *buf, int max_size);
+
+        // Blocking, returns on packet receival, error, or when specified ms elapses.
+        int                     timed_listen(char *buf, int max_size, int ms);
+
         bool                    running();                
         int                     s_port;
         const char*             s_addr;

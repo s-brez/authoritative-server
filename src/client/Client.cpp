@@ -1,10 +1,5 @@
 #include "Client.h"
 
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-#include<arpa/inet.h>
-#include<sys/socket.h>
 
 int main(int argc, char *argv[])	{
 	
@@ -24,7 +19,8 @@ int main(int argc, char *argv[])	{
 	}
 
 	close(client.s);
-	return 0;
+
+	return EXIT_SUCCESS;
 }
 
 Client::Client(const char* address, int port)  {

@@ -1,23 +1,49 @@
 #include "Server.h"
 
-#include<stdio.h>
-#include<string.h>
-#include<stdlib.h>
-#include<arpa/inet.h>
-#include<sys/socket.h>
 
 int main(int argc, char *argv[])	{
 	
     Server server = Server(SERVER_DEFAULT_ADDRESS, SERVER_DEFAULT_PORT);
-	
-	// Get and action packets from clients
+
 	char buf[MSG_BUFFER_MAX_SIZE];
+	double seconds_per_tick = 1.0f / TICKS_PER_SECOND;
+
+	/** 
+	 * 1. Read incoming packets (messages from clients)
+	 * 2. Update game state accordingly
+	 * 3. Send state updates to clients
+	 * State updates should always be sent at 1 / TICKS_PER_SECOND intervals.
+	 * Once a period of 1 / TICKS_PER_SECOND elapses, push state update packets
+	 * to clients (go to step 3) and restart timing cycle.
+	 */
 	while(server.running())	{
 		
-		server.listen(buf, MSG_BUFFER_MAX_SIZE);
-		if (buf[0] != '\0') {
-			std::cout << buf;
-		} 
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        std::chrono::system_clock::time_point finish = std::chrono::system_clock::now();
+        std::chrono::duration<double, std::milli> processing_time = start - finish;
+        
+		// 1. Get and action new packets
+		while (processing_time.count() < seconds_per_tick) {
+            
+            start = std::chrono::system_clock::now();
+            processing_time = start - finish;
+
+			// This should be consistend once timed_listen() implemented
+            std::cout << processing_time.count() << std::endl;    
+			
+			// TODO add remauining tick time as timeout to listen()
+			server.listen(buf, MSG_BUFFER_MAX_SIZE);
+			if (buf[0] != '\0') {
+				std::cout << buf;
+
+				// 2. Update server-side game state
+				// TODO
+			}
+		}
+		finish = std::chrono::system_clock::now(); 
+				
+        // 3. Send state updates to clients
+		// TODO
 	}
 
 	close(server.s);
@@ -39,8 +65,8 @@ Server::Server(const char* address, int port) {
 	memset((char *) &s_info_server, 0, sizeof(s_info_server));
 	s_info_server.sin_family = AF_INET;
 	s_info_server.sin_port = htons(port);
-	s_info_server.sin_addr.s_addr = inet_addr(address);
-	// s_info.sin_addr.s_addr = htonl(INADDR_ANY);
+	s_info_server.sin_addr.s_addr = inet_addr(address);  // Specified address
+	// s_info.sin_addr.s_addr = htonl(INADDR_ANY);	// Localhost
 
 	// Bind socket to specified port
 	if( bind(s, (struct sockaddr*)&s_info_server, sizeof(s_info_server) ) == -1){
@@ -70,7 +96,11 @@ int Server::listen(char* buf, int max_size) {
 		std::cout << "[server] error when sending response packet" << std::endl;
 	}	
 
-	return 1;
+	return EXIT_SUCCESS;
 } 
+
+int Server::timed_listen(char* buf, int max_size, int ms) {
+	return EXIT_SUCCESS;
+}
 
 bool Server::running()  {return is_running;}
