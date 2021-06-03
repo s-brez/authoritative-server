@@ -7,29 +7,20 @@
 
 class Server    {
     public:
+        Server(const char* address, int port);
         Server();
-        Server(const std::string address, int port);
         ~Server();
-                
-        /* Listens for packets until packet received (with no timeout).
-        * msg              Message buffer to write packet data to.
-        * max_size         Maximum size of message buffer.
-        * returns:         Total bytes read or -1 on error case.
-        */
-        int                     listen(char *msg, size_t max_size);
-
-        bool                    running();
-        const int               get_socket();
-        const int               get_port();
-        const std::string       get_addr();
-
-    private:
-        int                     s_socket;
+        bool                    running();                
+        int                     listen(char *buf, int max_size);
         int                     s_port;
-        std::string             s_addr;
-        struct addrinfo*        s_addrinfo;
-        bool                    is_running;
-        
+        const char*             s_addr;
+        struct sockaddr_in      s_info_server;
+        struct sockaddr_in      s_info_client;
+        int                     s, send_len, recv_len;
+    
+    private:
+        bool                    is_running;        
+
 };
 
 

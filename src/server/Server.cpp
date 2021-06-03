@@ -6,66 +6,70 @@
 #include<arpa/inet.h>
 #include<sys/socket.h>
 
-void die(char *s)
-{
-	perror(s);
-	exit(1);
+int main(int argc, char *argv[])	{
+	
+    Server server = Server(SERVER_DEFAULT_ADDRESS, SERVER_DEFAULT_PORT);
+	
+	// Get and action packets
+	char buf[MSG_BUFFER_MAX_SIZE];
+	while(server.running())	{
+		
+		server.listen(buf, MSG_BUFFER_MAX_SIZE);
+		if (buf[0] != '\0') {
+			std::cout << buf;
+		} 
+	}
+
+	close(server.s);
+
+	return EXIT_SUCCESS;
 }
 
-int main(void)
-{
-	struct sockaddr_in si_me, si_other;
+Server::Server(const char* address, int port) {
+
+	// Init socket
+	s = sizeof(s_info_client);
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)	{
+		is_running = false;
+		std::cout << "[server] failed to create socket" << std::endl;
+	} else {is_running = true;}
 	
-	int s, i, slen = sizeof(si_other) , recv_len;
-	char buf[MSG_BUFFER_MAX_SIZE];
-    if (i) {}
+	// Store address/port details in addrinfo struct
+	memset((char *) &s_info_server, 0, sizeof(s_info_server));
+	s_info_server.sin_family = AF_INET;
+	s_info_server.sin_port = htons(SERVER_DEFAULT_PORT);
+	s_info_server.sin_addr.s_addr = inet_addr(SERVER_DEFAULT_ADDRESS);
+	// s_info.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	// Bind socket to specified port
+	if( bind(s, (struct sockaddr*)&s_info_server, sizeof(s_info_server) ) == -1){
+		is_running = false;
+		std::cout << "[server] failed to bind socket" << std::endl;
+	} else {is_running = true;}
+
+}
+    
+Server::~Server() {
+	close(s);
+}
+
+Server::Server() {is_running = false;}
+
+int Server::listen(char* buf, int max_size) {
 	
-	//create a UDP socket
-	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-	{
-        char s[] = "socket";
-		die(s);
-	}
-	
-	// zero out the structure
-	memset((char *) &si_me, 0, sizeof(si_me));
-	
-	si_me.sin_family = AF_INET;
-	si_me.sin_port = htons(SERVER_DEFAULT_PORT);
-	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
-	
-	//bind socket to port
-	if( bind(s , (struct sockaddr*)&si_me, sizeof(si_me) ) == -1)
-	{
-        char b[] = "bind";
-		die(b);
-	}
-	
-	//keep listening for data
-	while(1)
-	{
-		printf("Waiting for data...");
-		fflush(stdout);
-		
-		//try to receive some data, this is a blocking call
-		if ((recv_len = recvfrom(s, buf, MSG_BUFFER_MAX_SIZE, 0, (struct sockaddr *) &si_other,  (socklen_t*)&slen)) == -1)
-		{
-            char r[] = "recvfrom()";
-			die(r);
-		}
-		
-		//print details of the client/peer and the data received
-		printf("Received packet from %s:%d\n", inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port));
-		printf("Data: %s\n" , buf);
-		
-		//now reply the client with the same data
-		if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &si_other, slen) == -1)
-		{
-            char st[] = "sendto()";
-			die(st);
-		}
+	// Clear buffer and receive packet
+	buf[0] = '\0';
+	recv_len = 0;
+	if ((recv_len = recvfrom(s, buf, MSG_BUFFER_MAX_SIZE, 0, (struct sockaddr *) &s_info_client,  (socklen_t*)&send_len)) == -1)	{
+		std::cout << "[server] error when reading incoming packet" << std::endl;
 	}
 
-	close(s);
+	// Respond to sender
+	if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &s_info_client, send_len) == -1)	{
+		std::cout << "[server] error when sending response packet" << std::endl;
+	}	
+
 	return 0;
 }
+
+bool Server::running()  {return is_running;}
