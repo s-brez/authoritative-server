@@ -4,29 +4,25 @@
 #include "../shared/Shared.h"
 
 #define CLIENT_DEFAULT_ADDRESS     "127.0.0.1"
-#define CLIENT_DEFAULT_PORT        8081
+#define CLIENT_DEFAULT_PORT        8080
 
 class Client
 {
     public:
         Client();
-        Client(const std::string& address, int port);
+        Client(const char* address, int port);
         ~Client();
+
+        int                     send(char *buf, char *msg, int max_size);
+        bool                    running();
+        int                     c_port;
+        const char*             c_addr;
         
-
-        int                 send(const char *msg, size_t size);       
-
-        bool                running();
-        const int           get_socket();
-        const int           get_port();
-        const std::string   get_addr();
+        struct sockaddr_in      s_info_server;
+        int                     s, send_len, recv_len;
 
     private:
-        int                 c_socket;
-        int                 c_port;
-        std::string         c_addr;
-        struct addrinfo*    c_addrinfo;
-        bool                is_running;
+        bool                    is_running;
         
         
 };

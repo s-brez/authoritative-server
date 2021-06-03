@@ -10,8 +10,9 @@ class Server    {
         Server(const char* address, int port);
         Server();
         ~Server();
-        bool                    running();                
+
         int                     listen(char *buf, int max_size);
+        bool                    running();                
         int                     s_port;
         const char*             s_addr;
         struct sockaddr_in      s_info_server;

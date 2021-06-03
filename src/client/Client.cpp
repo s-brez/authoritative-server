@@ -6,61 +6,70 @@
 #include<arpa/inet.h>
 #include<sys/socket.h>
 
-void die(char *s)
-{
-	perror(s);
-	exit(1);
-}
-
-int main(void)
-{
-	struct sockaddr_in si_other;
-	int s, i, slen=sizeof(si_other);
-	char buf[MSG_BUFFER_MAX_SIZE];
-	char message[MSG_BUFFER_MAX_SIZE];
-    if (i) {}
-
-	if ( (s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-	{
-        char s[] = "socket";
-		die(s);
-	}
-
-	memset((char *) &si_other, 0, sizeof(si_other));
-	si_other.sin_family = AF_INET;
-	si_other.sin_port = htons(SERVER_DEFAULT_PORT);
+int main(int argc, char *argv[])	{
 	
-	if (inet_aton(SERVER_DEFAULT_ADDRESS , &si_other.sin_addr) == 0) 
-	{
-		fprintf(stderr, "inet_aton() failed\n");
-		exit(1);
+	Client client = Client(SERVER_DEFAULT_ADDRESS, SERVER_DEFAULT_PORT);
+
+	char buf[MSG_BUFFER_MAX_SIZE];
+	char msg[MSG_BUFFER_MAX_SIZE];
+
+	while(client.running())	{
+
+		// Send message to server
+		client.send(buf, msg, MSG_BUFFER_MAX_SIZE);
+
+		// Print response, if any.
+		if (buf[0] != '\0') {std::cout << buf;} 
+
 	}
 
-	while(1)
-	{
-		printf("Enter message : ");
-		fgets(message, MSG_BUFFER_MAX_SIZE, stdin);
-		
-		//send the message
-		if (sendto(s, message, strlen(message) , 0 , (struct sockaddr *) &si_other, slen)==-1)
-		{
-            char st[] = "sendto()";
-			die(st);
-		}
-		
-		//receive a reply and print it
-		//clear the buffer by filling null, it might have previously received data
-		memset(buf,'\0', MSG_BUFFER_MAX_SIZE);
-		//try to receive some data, this is a blocking call
-		if (recvfrom(s, buf, MSG_BUFFER_MAX_SIZE, 0, (struct sockaddr *) &si_other, (socklen_t*)&slen) == -1)
-		{
-            char r[] = "recvfrom()";
-			die(r);
-		}
-		
-		puts(buf);
-	}
-
-	close(s);
+	close(client.s);
 	return 0;
 }
+
+Client::Client(const char* address, int port)  {
+	s = sizeof(s_info_server);
+	send_len = sizeof(s_info_server);
+
+	// Create socket
+	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)	{
+		is_running = false;
+	} else {is_running = true;}
+
+	// Store address/port details in addrinfo struct
+	memset((char *) &s_info_server, 0, sizeof(s_info_server));
+	s_info_server.sin_family = AF_INET;
+	s_info_server.sin_port = htons(SERVER_DEFAULT_PORT);
+	if (inet_aton(SERVER_DEFAULT_ADDRESS , &s_info_server.sin_addr) == 0) {
+		is_running = false;
+	} else {is_running = true;}
+}
+
+Client::Client()    {
+    is_running = false;
+}
+
+Client::~Client()   {
+    close(s);
+}
+
+int Client::send(char *buf, char *msg, int max_size) {
+
+	printf("Enter message : ");
+	fgets(msg, max_size, stdin);
+	
+	// Send message.
+	if (sendto(s, msg, strlen(msg) , 0 , (struct sockaddr *) &s_info_server, send_len)==-1)	{
+		std::cout << "[client] error sending message" << std::endl;
+	}
+	
+	// Clear buffer and receive response.
+	memset(buf,'\0', MSG_BUFFER_MAX_SIZE);
+	if (recvfrom(s, buf, MSG_BUFFER_MAX_SIZE, 0, (struct sockaddr *) &s_info_server, (socklen_t*)&send_len) == -1)	{
+		std::cout << "[client] error reading message response packet" << std::endl;
+	}	
+
+	return 1;
+}
+
+bool Client::running()  {return is_running;}
