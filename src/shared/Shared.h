@@ -10,25 +10,24 @@
 // Must not exceed 508
 #define PACKET_SIZE                 256
 
+#define USERNAME_MAX_LENGTH         16
+
 #include <chrono>
+#include <string>
 #include <netdb.h>
 #include <stdio.h>
 #include <iostream>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <algorithm>
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
+std::string salt();
 
-struct Packet {
-    char* msg[PACKET_SIZE];
-    in_addr sender;
-    int timestamp;
-    int msg_len;        
-    int idx;            // Sequence number, derive from message
-};
+std::string hash(std::string pwd, std::string salt);
 
 #endif
