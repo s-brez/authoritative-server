@@ -13,10 +13,10 @@ class Server    {
         ~Server();
 
         // Blocking, returns only on packet receival or error.
-        int                     listen(char *buf, int max_size);
+        int                     listen(Packet packet_buffer);
 
-        // Blocking, returns on packet receival, error, or when specified ms elapses.
-        int                     timed_listen(char *buf, int max_size, int ms);
+        // Blocking, returns on packet receival, error, or when timeout elapses.
+        int                     timed_listen(Packet packet_buffer, int timeout);
 
         bool                    running();                
         int                     s_port;
