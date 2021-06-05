@@ -5,13 +5,13 @@ int main(int argc, char *argv[])	{
 	
 	Client client = Client(SERVER_DEFAULT_ADDRESS, SERVER_DEFAULT_PORT);
 
-	char buf[MSG_BUFFER_MAX_SIZE];
-	char msg[MSG_BUFFER_MAX_SIZE];
+	char buf[PACKET_SIZE];
+	char msg[PACKET_SIZE];
 
 	while(client.running())	{
 
 		// Send message to server
-		client.send(buf, msg, MSG_BUFFER_MAX_SIZE);
+		client.send(buf, msg, PACKET_SIZE);
 
 		// Print response, if any.
 		if (buf[0] != '\0') {std::cout << buf;} 
@@ -60,8 +60,8 @@ int Client::send(char *buf, char *msg, int max_size) {
 	}
 	
 	// Clear buffer and receive response.
-	memset(buf,'\0', MSG_BUFFER_MAX_SIZE);
-	if (recvfrom(s, buf, MSG_BUFFER_MAX_SIZE, 0, (struct sockaddr *) &s_info_server, (socklen_t*)&send_len) == -1)	{
+	memset(buf,'\0', PACKET_SIZE);
+	if (recvfrom(s, buf, PACKET_SIZE, 0, (struct sockaddr *) &s_info_server, (socklen_t*)&send_len) == -1)	{
 		std::cout << "[client] error reading message response packet" << std::endl;
 	}	
 
