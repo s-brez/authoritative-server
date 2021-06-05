@@ -33,6 +33,13 @@ class Server    {
         Server();
         ~Server();
 
+        /** Client message handling & world state update
+        * 1. Receive incoming packets.
+        * 2. Validate packet data and update game state accordingly.
+        * 3. Send state update packets back to clients.
+        */
+        int                    run();
+
         // Blocking, returns only on packet receival or error.
         // Writes packet message to "buf", if packets exist.
         int                     listen();

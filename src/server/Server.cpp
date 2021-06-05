@@ -4,80 +4,7 @@
 int main(int argc, char *argv[])	{
 	
     Server server = Server(SERVER_DEFAULT_ADDRESS, SERVER_DEFAULT_PORT);
-
-	/** Server workflow
-	 * 1. Receive incoming packets.
-	 * 2. Validate packet data and update game state accordingly.
-	 * 3. Send state update packets back to clients.
-	 * 
-	 * State updates should always be sent at (1 / TICKS_PER_SECOND) intervals.
-	 * Once (1 / TICKS_PER_SECOND) elapses, update clients and restart loop.
-	 */
-	double seconds_per_tick = 1.0f / TICKS_PER_SECOND;
-	while(server.running())	{
-		
-        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
-        std::chrono::system_clock::time_point finish = std::chrono::system_clock::now();
-        std::chrono::duration<double, std::milli> time_elapsed = start - finish;
-		double time_remaining;
-        
-		while (time_elapsed.count() < seconds_per_tick) {
-            
-            start = std::chrono::system_clock::now();
-            time_elapsed = start - finish;
-			time_remaining = seconds_per_tick - time_elapsed.count();
-			
-			/** Packet validation rules: 
-			 * 1. Four possible client packet types: login, logout, input, chat.
-			 * 2. First byte of all packets' data must be MSG_<TYPE> integer.
-			 * 3. Input message packets must come from a logged-in IP to be actioned.
-			 */
-			server.timed_listen(time_remaining);
-			if (server.buf[0] != '\0') {
-				switch (server.buf[0] - '0') {  // Convert char byte to int for type checking
-					
-					case MSG_INPUT:
-						break;
-
-
-					case MSG_CHAT:
-						break;
-
-					/** Login protocol:
-					 * 1. Clients send login request message.
-					 * 2. Server responds with ack, and salt.
-					 * 3. Client sends hash of username and password and salt.
-					 * 4. If hash matches, client IP recorded as logged in until timeout or logout.
-					 */
-					case MSG_LOGIN:
-						break;
-
-					// Logout protocol: same as login, but IP removed instead of recorded.
-					case MSG_LOGOUT:
-						break;
-					
-					default:
-						std::cout << "[server] unknown message type (" << server.buf[0] << ") from client ";
-				}
-
-
-				std::cout << inet_ntoa(server.s_info_client.sin_addr) 
-						  << ":" << server.s_info_client.sin_port
-						  << " - " << server.buf;
-
-				// TODO
-			}
-		}
-		// This should produce mostly consistent timings
-        // std::cout << "Time taken: " << time_elapsed.count() << std::endl;   
-		
-		finish = std::chrono::system_clock::now(); 
-				
-        // 3
-		// TODO
-	}
-
-	close(server.s);
+	server.run();
 
 	return EXIT_SUCCESS;
 }
@@ -161,11 +88,79 @@ int Server::timed_listen(double timeout) {
 	
 	}
 
-	
-
-
-
 	return EXIT_SUCCESS;
 }
 
 bool Server::running()  {return is_running;}
+
+int Server::run() {
+	
+	double seconds_per_tick = 1.0f / TICKS_PER_SECOND;
+	while(is_running)	{
+		
+		// State updates should always be sent at (1 / TICKS_PER_SECOND) intervals.
+    	// Once (1 / TICKS_PER_SECOND) elapses, update clients and restart loop.
+        std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+        std::chrono::system_clock::time_point finish = std::chrono::system_clock::now();
+        std::chrono::duration<double, std::milli> time_elapsed = start - finish;
+		double time_remaining;
+		while (time_elapsed.count() < seconds_per_tick) {
+            
+            start = std::chrono::system_clock::now();
+            time_elapsed = start - finish;
+			time_remaining = seconds_per_tick - time_elapsed.count();
+			
+			/** Packet validation rules: 
+			 * 1. Four possible client packet types: login, logout, input, chat.
+			 * 2. First byte of all packet data must be MSG_<TYPE> integer.
+			 * 3. Input/logout/chat packets must come from a logged-in IP to be actioned.
+			 */
+			timed_listen(time_remaining);
+			if (buf[0] != '\0') {
+				switch (buf[0] - '0') {  // Convert char byte to int for type checking
+					
+					case MSG_INPUT:
+						break;
+
+
+					case MSG_CHAT:
+						break;
+
+					/** Login protocol:
+					 * 1. Clients send login request message.
+					 * 2. Server responds with ack, and salt.
+					 * 3. Client sends hash of username and password and salt.
+					 * 4. If hash matches, client IP recorded as logged in until timeout or logout.
+					 */
+					case MSG_LOGIN:
+						break;
+
+					// Logout protocol: same as login, but IP removed instead of recorded.
+					case MSG_LOGOUT:
+						break;
+					
+					default:
+						std::cout << "[server] unknown message type (" << buf[0] << ") from client ";
+				}
+
+
+				std::cout << inet_ntoa(s_info_client.sin_addr) 
+						  << ":" << s_info_client.sin_port
+						  << " - " << buf;
+
+				// TODO
+			}
+		}
+		// This should produce mostly consistent timings
+        // std::cout << "Time taken: " << time_elapsed.count() << std::endl;   
+		
+		finish = std::chrono::system_clock::now(); 
+				
+        // 3
+		// TODO
+	}
+
+	close(s);
+   return EXIT_SUCCESS;	
+
+}
