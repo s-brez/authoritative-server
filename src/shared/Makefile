@@ -5,7 +5,7 @@ all: Shared
 clean:
 	rm -rf Shared *.o *.dSYM test
 
-Shared: Shared.o
+Shared: Shared.o -lssl -lcrypto 
 	g++ -Wall -Werror -std=c++14 -g -O -o $@ $^
 
 %.o: %.cpp 
