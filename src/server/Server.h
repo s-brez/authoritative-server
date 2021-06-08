@@ -35,7 +35,7 @@ struct ClientState {
     int connected;                  // STATE_CONNECTED or STATE_PENDING
     in_addr addr;                   // IP
     std::string login_salt;
-    std::string login_hash;         // SHA256(pwd + salt)
+    std::string login_hash;           // SHA256(pwd + salt)
     std::string username;
     int index;                      // Location of this struct in ClientState slots array
 };

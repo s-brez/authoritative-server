@@ -200,13 +200,14 @@ int Server::login() {
 	 */
 
 	// Extract username from message buffer.
-	char s[USERNAME_MAX_LENGTH + 2];
-	memcpy( s, &buf[1], USERNAME_MAX_LENGTH + 1);
-	s[USERNAME_MAX_LENGTH + 2] = '\0';
-	std::string username = s;
+	char str[USERNAME_MAX_LENGTH + 2];
+	memcpy(str, &buf[1], USERNAME_MAX_LENGTH + 1);
+	std::string username = str;
 	username.erase(std::remove(username.begin(), username.end(), ' '), username.end());
+	username.erase(std::remove(username.begin(), username.end(), '\n'), username.end());
 	
 	// Check if username known.
+	int slot = -1;
 	if (std::find(usernames.begin(), usernames.end(), username) != usernames.end()) {
 
 		std::cout << "[server] login action type " << buf[USERNAME_MAX_LENGTH + 2]
@@ -214,37 +215,53 @@ int Server::login() {
 				  << inet_ntoa(s_info_client.sin_addr) << std::endl;
 
 		// Allocate client to a slot if not already allocated.
-		allocate_client_connection_slot(username, s_info_client.sin_addr);
+		slot = allocate_client_connection_slot(username, s_info_client.sin_addr);
+		if (slot >= 0) {
 
-		// Debug: print clients
-		std::cout << "logged in or pending clients:" << std::endl;
-		for (int i = 0; i < MAX_PLAYERS; i++ ) {
-			if (slots[i].in_use) {
-				std::cout << slots[i].username << std::endl;
-			}	
-		}
+			// Debug: print clients
+			// std::cout << "[server] logged in or pending clients:" << std::endl;
+			// for (int i = 0; i < MAX_PLAYERS; i++ ) {
+			// 	if (slots[i].in_use) {
+			// 		std::cout << "    " << slots[i].username << std::endl;
+			// 	}	
+			// }
 
-
-		// Check buf[USERNAME_MAX_LENGTH + 2] for intended action.
-		switch (buf[USERNAME_MAX_LENGTH + 2] - '0') {
+			// Check buf[USERNAME_MAX_LENGTH + 2] for intended action.
+			switch (buf[USERNAME_MAX_LENGTH + 2] - '0') {
+				
+				// Send challenge packet with salt
+				case LOGIN_ACTION_INIT:
+					std::cout << "[Server] user " << username << " exists. Sending challenge packet to " << inet_ntoa(s_info_client.sin_addr) << std::endl;	
 			
-			// Send challenge packet with salt
-			case LOGIN_ACTION_INIT:
-				std::cout << "[Server] user " << username << " exists. Sending challenge packet to " << inet_ntoa(s_info_client.sin_addr) << std::endl;	
+					// Format buffer 
+					std::cout << "[server] Slot " << slot << std::endl;
+					std::cout << "         salt " << slots[slot].login_salt << std::endl;
+					std::cout << "         hash " << slots[slot].login_hash << std::endl;
+					std::cout << "     username " << slots[slot].username << std::endl;
 
-				break;
+					if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &s_info_client, send_len) == -1)	{
+						std::cout << "[server] error when sending response packet" << std::endl;
+					}	
+					break;
 
-			// Check incoming auth hash against actual auth hash 
-			case LOGIN_ACTION_AUTH:
-				std::cout << "[Server] checking " << username << " credentials." << std::endl;	
-				break;
+				// Check incoming auth hash against actual auth hash 
+				case LOGIN_ACTION_AUTH:
+					std::cout << "[Server] checking " << username << " credentials." << std::endl;	
+					break;
+			}
+		
+		// Deny on error case
+		} else {
+
+			// TODO: Denial packet
 
 		}
 		
-
 	// Deny if username not known
 	} else {
 		std::cout << "[Server] username " << username << " does not exist." << std::endl;	
+
+		// TODO: Denial packet
 
 	}
 
@@ -256,6 +273,7 @@ int Server::allocate_client_connection_slot(std::string username, in_addr ip) {
 
 	int first_free_slot = -1;
 	bool done = false;
+	std::string temp_pass = "";
 
 	// Check all slots to see if player already connected
 	for (int i = 0; i < MAX_PLAYERS && !done; i++ ) {
@@ -264,7 +282,7 @@ int Server::allocate_client_connection_slot(std::string username, in_addr ip) {
 			// Client already allocated.
 			if (slots[i].username == username ) {
 				done = true;
-				return EXIT_SUCCESS;
+				return i;
 			}
 		
 		// Save first free slot in case player not allocated
@@ -282,12 +300,14 @@ int Server::allocate_client_connection_slot(std::string username, in_addr ip) {
 		client.connected = CONN_STATE_PENDING;
 		client.index = first_free_slot;
 		client.login_salt = salt();
+				
 		client.login_hash = hash(get_user_details(username).password, client.login_salt);
+
 		client.username = username;
 
 		slots[first_free_slot] = client;
 
-		return EXIT_SUCCESS;
+		return first_free_slot;
 	} 
 
 	// Return error if no free slots and client not allocated.
@@ -297,7 +317,15 @@ int Server::allocate_client_connection_slot(std::string username, in_addr ip) {
 AccountInfo Server::get_user_details(std::string username) {
 	
 	AccountInfo info;
+	bool done = false;
 	
+	for (long unsigned int i = 0; i < accounts.size() && !done; i++ ) {
+		if (accounts[i].username == username) {
+			info.username = accounts[i].username;
+			info.password = accounts[i].password;
+		}
+	}
+
 	return info;
 }
 
