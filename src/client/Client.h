@@ -13,16 +13,32 @@ class Client
         Client(const char* address, int port);
         ~Client();
 
-        int                     send(char *buf, char *msg, int max_size);
-        bool                    running();
-        int                     c_port;
-        const char*             c_addr;
-        
-        struct sockaddr_in      s_info_server;
-        int                     s, send_len, recv_len;
+        int                         run();
 
+        int                         listen(double timeout);
+
+        bool                        set_account_details();
+
+        int                         send_auth_init_message();
+        int                         send_auth_verify_message();
+
+        bool                        running();
+        int                         c_port;
+        const char*                 c_addr;
+        
     private:
-        bool                    is_running;
+        struct sockaddr_in          s_info_server;
+        int                         s, send_len, recv_len;
+        int                         connection;
+        bool                        is_running;
+        char                        buf[PACKET_SIZE];
+	    char                        msg[PACKET_SIZE];
+        std::string                 hash;
+        std::string                 salt;
+        std::string                 username;
+        std::string                 password;
+
+        
         
         
 };

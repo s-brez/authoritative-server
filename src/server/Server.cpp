@@ -74,34 +74,13 @@ int Server::listen(double timeout) {
 	} else {
 	
 		// Send response message.
-		if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &s_info_client, send_len) == -1)	{
-			std::cout << "[server] error when sending response packet" << std::endl;
-		}	
+		// if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &s_info_client, send_len) == -1)	{
+		// 	std::cout << "[server] error when sending response packet" << std::endl;
+		// }	
 	
 	}
 
 	return EXIT_SUCCESS;
-}
-
-int Server::update_known_accounts() {
-	
-	// Get this from DB later
-	AccountInfo p1 {"player1", "password"};
-	AccountInfo p2 {"player2", "password"};
-	AccountInfo p3 {"sixteencharname__", "password"};
-	AccountInfo p4 {"nameovercharacterlimit", "password"};
-	accounts.push_back(p1);
-	accounts.push_back(p2);
-	accounts.push_back(p3);
-	accounts.push_back(p4);
-
-	usernames.push_back("player1");
-	usernames.push_back("player2");
-	usernames.push_back("sixteencharname__");
-	usernames.push_back("nameovercharacterlimit");
-
-	return EXIT_SUCCESS;
-
 }
 
 int Server::run() {
@@ -138,32 +117,18 @@ int Server::run() {
 						std::cout << buf;
 						break;
 
-
 					case MSG_CHAT:
 						std::cout << "[server] chat received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
 						std::cout << buf;
 						break;
 
-					case MSG_LOGIN:
-						login();
+					case MSG_AUTH:
+						handle_auth_messages();
 						break;
-
-					// Logout protocol: same as login, but IP removed instead of recorded.
-					case MSG_LOGOUT:
-						std::cout << "[server] logout request received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
-						std::cout << buf;
-						break;
-					
+				
 					default:
 						std::cout << "[server] unknown message (" << buf[0] << ") from client " << std::endl;
 				}
-
-
-				// std::cout << inet_ntoa(s_info_client.sin_addr) 
-				// 		  << ":" << s_info_client.sin_port
-				// 		  << " - " << buf;
-
-				// TODO
 			}
 		}
 		// This should produce mostly consistent timings
@@ -171,7 +136,7 @@ int Server::run() {
 		
 		finish = std::chrono::system_clock::now(); 
 				
-        // 3
+        // World update based on input
 		// TODO
 	}
 
@@ -180,12 +145,12 @@ int Server::run() {
 
 }
 
-int Server::login() {
+int Server::handle_auth_messages() {
 
 	/** 
-	 * Login handshake & login message validation: 
+	 * Auth handshake & message validation: 
 	 * 
-	 * - Client message buf[1] to buf[USERNAME_MAX_LENGTH + 2] must contain client username.
+	 * - Client message buf[1] to buf[USERNAME_MAX_LENGTH + 1] must contain client username.
 	 * - Send deny message if no known username matches.
 	 * 
 	 * - Client message buf[USERNAME_MAX_LENGTH + 2] must be int 1 or 2, with cases:
@@ -200,68 +165,55 @@ int Server::login() {
 	 */
 
 	// Extract username from message buffer.
-	char str[USERNAME_MAX_LENGTH + 2];
-	memcpy(str, &buf[1], USERNAME_MAX_LENGTH + 1);
+	char str[USERNAME_MAX_LENGTH];
+	memcpy(str, &buf[1], USERNAME_MAX_LENGTH);
 	std::string username = str;
+	str[USERNAME_MAX_LENGTH] = '\0';
 	username.erase(std::remove(username.begin(), username.end(), ' '), username.end());
 	username.erase(std::remove(username.begin(), username.end(), '\n'), username.end());
 	
-	// Check if username known.
+	// Check client connection state.
 	int slot = -1;
 	if (std::find(usernames.begin(), usernames.end(), username) != usernames.end()) {
 
-		std::cout << "[server] login action type " << buf[USERNAME_MAX_LENGTH + 2]
-				  << " received for " << username << " from " 
-				  << inet_ntoa(s_info_client.sin_addr) << std::endl;
-
-		// Allocate client to a slot if not already allocated.
-		slot = allocate_client_connection_slot(username, s_info_client.sin_addr);
+		// Allocate client to a connection slot if not already allocated.
+		slot = allocate_client_connection_slot(username, s_info_client);
 		if (slot >= 0) {
 
-			// Debug: print clients
-			// std::cout << "[server] logged in or pending clients:" << std::endl;
-			// for (int i = 0; i < MAX_PLAYERS; i++ ) {
-			// 	if (slots[i].in_use) {
-			// 		std::cout << "    " << slots[i].username << std::endl;
-			// 	}	
-			// }
-
-			// Check buf[USERNAME_MAX_LENGTH + 2] for intended action.
-			switch (buf[USERNAME_MAX_LENGTH + 2] - '0') {
+			// Check buf[USERNAME_MAX_LENGTH + 1] for intended action.
+			switch (buf[USERNAME_MAX_LENGTH + 1] - '0') {
 				
-				// Send challenge packet with salt
-				case LOGIN_ACTION_INIT:
-					std::cout << "[Server] user " << username << " exists. Sending challenge packet to " << inet_ntoa(s_info_client.sin_addr) << std::endl;	
-			
-					// Format buffer 
-					std::cout << "[server] Slot " << slot << std::endl;
-					std::cout << "         salt " << slots[slot].login_salt << std::endl;
-					std::cout << "         hash " << slots[slot].login_hash << std::endl;
-					std::cout << "     username " << slots[slot].username << std::endl;
-
-					if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &s_info_client, send_len) == -1)	{
-						std::cout << "[server] error when sending response packet" << std::endl;
-					}	
+				// Client sent login request, send challenge packet.
+				case AUTH_ACTION_INIT:
+					std::cout << "[server] auth init message received from " << username  << std::endl;	
+					slots[slot].connected = CONN_STATE_PENDING;
+					send_challenge_message(slots[slot]);
 					break;
 
-				// Check incoming auth hash against actual auth hash 
-				case LOGIN_ACTION_AUTH:
-					std::cout << "[Server] checking " << username << " credentials." << std::endl;	
+				// Check incoming hash against actual hash. 
+				case AUTH_ACTION_VERIFY:
+					std::cout << "[server] checking " << username << " credentials" << std::endl;	
+					if(verify_auth_hash(slots[slot].login_hash, buf)) {
+						slots[slot].connected = CONN_STATE_CONNECTED;
+						send_success_message(slots[slot]);
+					} else {
+						send_terminate_message(slots[slot]);
+						ClientState empty_slot;
+						empty_slot.in_use = false;
+						slots[slot] = empty_slot;
+					}
+					
 					break;
 			}
 		
-		// Deny on error case
+		// Deny access on error case
 		} else {
-
-			// TODO: Denial packet
-
+			send_terminate_message(slots[slot]);
 		}
 		
 	// Deny if username not known
 	} else {
-		std::cout << "[Server] username " << username << " does not exist." << std::endl;	
-
-		// TODO: Denial packet
+		std::cout << "[server] username " << username << " does not exist." << std::endl;	
 
 	}
 
@@ -269,7 +221,49 @@ int Server::login() {
 	return EXIT_SUCCESS;
 }
 
-int Server::allocate_client_connection_slot(std::string username, in_addr ip) {
+bool Server::verify_auth_hash(std::string actual, char* test) {
+	return true;
+}
+
+int Server::send_success_message(ClientState client) {
+	return 1;
+}
+
+int Server::send_terminate_message(ClientState client) {
+	return 1;
+}
+
+int Server::send_challenge_message(ClientState client) {
+
+	// Clear message buffer
+	memset(msg,'\0', PACKET_SIZE);
+	
+	// First char is message type
+	// Next 32 chars is the clients salt
+	std::string s_msg;
+	s_msg += MSG_AUTH_CHALLENGE + '0';
+	s_msg += client.login_salt;
+	
+	// Copy formatted string to message buffer
+	strcpy(msg, s_msg.c_str());
+
+	std::cout  	<< "[server] sending challenge to: \n"
+				<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
+				<< client.addr.sin_port << " (slot" << client.index << ")\n"
+				<< "         salt: " << client.login_salt << '\n'
+				<< "         hash: " << client.login_hash << '\n'
+				<< "         msg: " << msg << std::endl;
+
+	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
+		std::cout << "[server] error when sending response packet" << std::endl;
+		return EXIT_FAILURE;
+	}	
+
+	return 1;
+
+}
+
+int Server::allocate_client_connection_slot(std::string username, sockaddr_in ip) {
 
 	int first_free_slot = -1;
 	bool done = false;
@@ -295,20 +289,33 @@ int Server::allocate_client_connection_slot(std::string username, in_addr ip) {
 	if (!done && first_free_slot >= 0) {
 		
 		ClientState client;
+		
+		// IP and port info
+		client.addr.sin_family = ip.sin_family;	
+		client.addr.sin_port = ip.sin_port;
+		client.addr.sin_addr.s_addr = ip.sin_addr.s_addr;
+
 		client.in_use = true;
-		client.addr = ip;
 		client.connected = CONN_STATE_PENDING;
 		client.index = first_free_slot;
 		client.login_salt = salt();
-				
-		client.login_hash = hash(get_user_details(username).password, client.login_salt);
-
+		client.login_hash = SHA256(get_user_details(username).password + client.login_salt);
 		client.username = username;
-
+		
 		slots[first_free_slot] = client;
-
+		
 		return first_free_slot;
 	} 
+
+
+	// Debug: print clients
+	// std::cout << "[server] logged in or pending clients:" << std::endl;
+	// for (int i = 0; i < MAX_PLAYERS; i++ ) {
+	// 	if (slots[i].in_use) {
+	// 		std::cout << "    " << slots[i].username << std::endl;
+	// 	}	
+	// }
+
 
 	// Return error if no free slots and client not allocated.
 	return EXIT_FAILURE;
@@ -327,6 +334,27 @@ AccountInfo Server::get_user_details(std::string username) {
 	}
 
 	return info;
+}
+
+int Server::update_known_accounts() {
+	
+	// Get this from DB later
+	AccountInfo p1 {"player1", "password"};
+	AccountInfo p2 {"player2", "password"};
+	AccountInfo p3 {"sixteencharname_", "password"};
+	AccountInfo p4 {"nameovercharacterlimit", "password"};
+	accounts.push_back(p1);
+	accounts.push_back(p2);
+	accounts.push_back(p3);
+	accounts.push_back(p4);
+
+	usernames.push_back("player1");
+	usernames.push_back("player2");
+	usernames.push_back("sixteencharname_");
+	usernames.push_back("nameovercharacterlimit");
+
+	return EXIT_SUCCESS;
+
 }
 
 bool Server::running()  {return is_running;}

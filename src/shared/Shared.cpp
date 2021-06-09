@@ -19,9 +19,6 @@ std::string salt() {
 
 std::string SHA256(std::string string) {
 
-    std::cout << "YEET" << std::endl;
-    std::cout << string << std::endl;
-
     unsigned char digest[SHA256_DIGEST_LENGTH];
 
     SHA256_CTX ctx;
@@ -32,10 +29,6 @@ std::string SHA256(std::string string) {
     char mdString[SHA256_DIGEST_LENGTH*2+1];
     for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
         std::sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
-
-    std::cout << "YEET" << std::endl;
-
-    // �sgK���?�=����A�C|P&ň��ȤW�
 
     return std::string(mdString);
 }
