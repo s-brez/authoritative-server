@@ -17,44 +17,25 @@ std::string salt() {
 
 }
 
-std::string hash(std::string pwd, std::string salt) {
-
-    std::string std_s = pwd + salt;
-    int len = std_s.length();
+std::string SHA256(std::string string) {
 
     std::cout << "YEET" << std::endl;
-    std::cout << std_s << std::endl;
-    std::cout << len << std::endl;
+    std::cout << string << std::endl;
 
-    char *input = &std_s[0];
+    unsigned char digest[SHA256_DIGEST_LENGTH];
 
-    unsigned char md[SHA256_DIGEST_LENGTH]; // 32 bytes
-    if(!SHA256(input, len, md))
-    {
-        std::cout << "Hashing failed" << std::endl;
-    }
-    std::cout << md << std::endl;
+    SHA256_CTX ctx;
+    SHA256_Init(&ctx);
+    SHA256_Update(&ctx, string.c_str(), std::strlen(string.c_str()));
+    SHA256_Final(digest, &ctx);
 
-    std::string result(reinterpret_cast< char const* >(md), SHA256_DIGEST_LENGTH + 1);
+    char mdString[SHA256_DIGEST_LENGTH*2+1];
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; i++)
+        std::sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
 
-    return result;
-// �sgK���?�=����A�C|P&ň��ȤW�
-// �sgK���?�=����A�C|P&ň��ȤW�
-// �sgK���?�=����A�C|P&ň��ȤW�
+    std::cout << "YEET" << std::endl;
 
-}
+    // �sgK���?�=����A�C|P&ň��ȤW�
 
-bool SHA256(void* input, unsigned long length, unsigned char* md)
-{
-    SHA256_CTX context;
-    if(!SHA256_Init(&context))
-        return false;
-
-    if(!SHA256_Update(&context, (unsigned char*)input, length))
-        return false;
-
-    if(!SHA256_Final(md, &context))
-        return false;
-
-    return true;
+    return std::string(mdString);
 }

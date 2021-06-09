@@ -15,6 +15,7 @@
 #define USERNAME_MAX_LENGTH         16
 
 #include <chrono>
+#include <cstring>
 #include <ctime>
 #include <string>
 #include <netdb.h>
@@ -28,16 +29,15 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <openssl/sha.h>
 
-// Returns ms timestamp as int
+// Returns random alphanumeric string of size SALT_SIZE
 std::string salt();
 
 // SHA256 hashes pwd and salt
 std::string hash(std::string pwd, std::string salt);
 
 // openssl SHA256 lib
-bool SHA256(void* input, unsigned long length, unsigned char* md);
+std::string SHA256(std::string string);
 
 #endif
