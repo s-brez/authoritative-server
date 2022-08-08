@@ -9,112 +9,6 @@ int main(int argc, char *argv[])	{
 	return EXIT_SUCCESS;
 }
 
-int Client::run() {
-
-	/**
-	 * Move networking and UI to separate threads/processes when
-	 * either or both become more CPU intensive.
-	 * No performance issue to handle all in one thread for now.
-	 */
-
-	while(is_running)	{
-
-		// Action all packets types when connected
-		if (connection == CONN_STATE_CONNECTED) {
-			if(listen(DEFAULT_TIMEOUT)) {
-				if (buf[0] != '\0') {
-					
-					switch (buf[0] - '0') { 
-						
-						case MSG_STATE_UPDATE:
-							std::cout << "[client] state update received from server" << std::endl;
-							std::cout << buf;
-							break;
-						
-						case MSG_STATE_UPDATE_SLICE:
-							std::cout << "[client] sliced state update received from server" << std::endl;
-							std::cout << buf;
-							break;
-						
-						case MSG_AUTH_CHALLENGE:
-							std::cout << "[client] auth challenge received" << std::endl;
-							break;
-						
-						case MSG_AUTH_SUCCESS:
-							std::cout << "[client] sucessfully authenticated" << std::endl;
-							std::cout << buf;
-							break;
-						
-						case MSG_FORCE_TERMINATE:
-							std::cout << "[client] forcefully disconnected from server" << std::endl;
-							std::cout << buf;
-							break;
-						
-						default:
-							std::cout << "[client] unknown message (" << buf[0] << ") from server " << std::endl;
-							std::cout << buf;
-					}
-				}
-
-			// Exit on error or timeout.
-			} else {
-				std::cout << "[client] connection timed out " << std::endl;
-				// is_running = false;
-				connection = CONN_STATE_DISCONNECTED;
-			}
-
-		// Only action auth and disconnect packets whilst connection pending
-		} else if (connection == CONN_STATE_PENDING) {
-			if(listen(DEFAULT_TIMEOUT)) {
-				if (buf[0] != '\0') {
-					switch (buf[0] - '0') { 
-						
-						case MSG_AUTH_CHALLENGE:
-							std::cout << "[client] auth challenge received" << std::endl;
-							send_auth_verify_message();
-							break;
-
-						case MSG_AUTH_SUCCESS:
-							std::cout << "[client] sucessfully authenticated" << std::endl;
-							connection = CONN_STATE_CONNECTED;
-							break;
-
-						case MSG_FORCE_TERMINATE:
-							std::cout << "[client] disconnected from server" << std::endl;
-							std::cout << buf;
-							connection = CONN_STATE_DISCONNECTED;
-							break;
-						
-						default:
-							std::cout << "[client] unknown message (" << buf[0] << ") from server " << std::endl;
-							std::cout << buf;
-					}
-				}
-			// Exit on error or timeout.
-			} else {
-				std::cout << "[client] connection timed out " << std::endl;
-				// is_running = false;
-				connection = CONN_STATE_DISCONNECTED;
-			}
-
-
-		// Attempt connection if disconnected
-		} else if (connection == CONN_STATE_DISCONNECTED) {
-			send_auth_init_message();
-			connection = CONN_STATE_PENDING;
-		}
-		
-		// Sleep to allow time for server to respond
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-	}
-
-	connection = CONN_STATE_DISCONNECTED;
-	close(s);
-
-	return EXIT_SUCCESS;
-}
-
 Client::Client(const char* address, int port)  {
 	s = sizeof(s_info_server);
 	send_len = sizeof(s_info_server);
@@ -169,6 +63,120 @@ int Client::listen(double timeout) {
 	}
 
 	return 1;
+}
+
+int Client::run() {
+
+	double seconds_per_tick = 1.0f / TICKS_PER_SECOND_CLIENT;
+	double time_remaining;
+	std::chrono::system_clock::time_point start; 
+	std::chrono::system_clock::time_point finish;
+	std::chrono::duration<double, std::milli> time_elapsed;
+	while(is_running)	{
+
+		// Input and heartbeat packets sent at (1 / TICKS_PER_SECOND_CLIENT) intervals.
+		finish = std::chrono::system_clock::now();
+		start = std::chrono::system_clock::now();
+        time_elapsed = start - finish;
+
+		// std::cout << "time elapsed: " << time_elapsed.count() << std::endl;   
+		while (time_elapsed.count() < seconds_per_tick) {
+            
+            start = std::chrono::system_clock::now();
+            time_elapsed = start - finish;
+			time_remaining = seconds_per_tick - time_elapsed.count();
+
+			std::cout << "Listening for: " << time_remaining << std::endl; 
+
+			// Action all packets types when connected
+			if (connection == CONN_STATE_CONNECTED) {				  
+				listen(time_remaining);
+				if (buf[0] != '\0') {
+					
+					switch (buf[0] - '0') { 
+						
+						case MSG_STATE_UPDATE:
+							std::cout << "[client] state update received from server" << std::endl;
+							std::cout << buf;
+							break;
+						
+						case MSG_STATE_UPDATE_SLICE:
+							std::cout << "[client] sliced state update received from server" << std::endl;
+							std::cout << buf;
+							break;
+						
+						case MSG_AUTH_CHALLENGE:
+							std::cout << "[client] auth challenge received" << std::endl;
+							send_auth_verify_message();
+							break;
+						
+						case MSG_AUTH_SUCCESS:
+							std::cout << "[client] sucessfully authenticated" << std::endl;
+							std::cout << buf;
+							break;
+						
+						case MSG_FORCE_TERMINATE:
+							std::cout << "[client] disconnected from server" << std::endl;
+							std::cout << buf;
+							connection = CONN_STATE_DISCONNECTED;
+							is_running = false;
+							break;
+						
+						default:
+							std::cout << "[client] unknown message (" << buf[0] << ") from server " << std::endl;
+							std::cout << buf;
+					}
+				}
+
+				// Send input or heartbeat packet.
+				// std::cout << "[client] sending heartbeat packet" << std::endl;
+
+			// Only action auth and disconnect packets whilst connection pending
+			} else if (connection == CONN_STATE_PENDING) {
+				listen(time_remaining);
+				if (buf[0] != '\0') {
+					switch (buf[0] - '0') { 
+						
+						case MSG_AUTH_CHALLENGE:
+							std::cout << "[client] auth challenge received" << std::endl;
+							send_auth_verify_message();
+							break;
+
+						case MSG_AUTH_SUCCESS:
+							std::cout << "[client] sucessfully authenticated" << std::endl;
+							connection = CONN_STATE_CONNECTED;
+							break;
+
+						case MSG_FORCE_TERMINATE:
+							std::cout << "[client] disconnected from server" << std::endl;
+							std::cout << buf;
+							connection = CONN_STATE_DISCONNECTED;
+							is_running = false;
+							break;
+						
+						default:
+							std::cout << "[client] unknown message (" << buf[0] << ") from server " << std::endl;
+							std::cout << buf;
+					}
+				}
+
+			// Attempt connection if disconnected
+			} else if (connection == CONN_STATE_DISCONNECTED) {
+				send_auth_init_message();
+				connection = CONN_STATE_PENDING;
+			}
+			
+			std::cout << "Processing time: " << time_elapsed.count() << std::endl;   
+
+			finish = std::chrono::system_clock::now(); 
+
+		}
+	}
+
+	connection = CONN_STATE_DISCONNECTED;
+	close(s);
+
+	return EXIT_SUCCESS;
 }
 
 int Client::send_auth_verify_message() {

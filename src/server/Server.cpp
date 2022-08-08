@@ -38,18 +38,20 @@ Server::Server(const char* address, int port) {
 	} else {is_running = true;}
 
 	// Set client connection slots to empty
+	total_connected_clients = 0;
 	for (int i = 0; i < MAX_PLAYERS; i++ ) {
 		ClientState state;
 		state.in_use = false;
 		slots[i] = state;
 	}
+	
 }
     
 Server::~Server() {
 	close(s);
 }
 
-Server::Server() {is_running = false;}
+Server::Server() {}
 
 int Server::listen(double timeout) {
 
@@ -67,16 +69,10 @@ int Server::listen(double timeout) {
 	
 	// Timeout or error
 	if (recv_len == -1)	{
-		
 		return EXIT_FAILURE;	
 	
 	// Success
 	} else {
-	
-		// Send response message.
-		// if (sendto(s, buf, recv_len, 0, (struct sockaddr*) &s_info_client, send_len) == -1)	{
-		// 	std::cout << "[server] error when sending response packet" << std::endl;
-		// }	
 	
 	}
 
@@ -85,17 +81,16 @@ int Server::listen(double timeout) {
 
 int Server::run() {
 	
-	double seconds_per_tick = 1.0f / TICKS_PER_SECOND;
+	double seconds_per_tick = 1.0f / TICKS_PER_SECOND_SERVER;
 	double time_remaining;
 	std::chrono::system_clock::time_point start; 
 	std::chrono::system_clock::time_point finish;
 	std::chrono::duration<double, std::milli> time_elapsed;
 	while(is_running)	{
 		
-		// State updates should always be sent at (1 / TICKS_PER_SECOND) intervals.
-    	// Once (1 / TICKS_PER_SECOND) elapses, update clients and restart loop.
-        start = std::chrono::system_clock::now();
+		// State updates sent at (1 / TICKS_PER_SECOND_SERVER) intervals.
         finish = std::chrono::system_clock::now();
+		start = std::chrono::system_clock::now();
         time_elapsed = start - finish;
 		while (time_elapsed.count() < seconds_per_tick) {
             
@@ -103,10 +98,12 @@ int Server::run() {
             time_elapsed = start - finish;
 			time_remaining = seconds_per_tick - time_elapsed.count();
 			
+			std::cout << "Listening for: " << time_remaining << std::endl;   
+
 			/** Packet validation rules: 
-			 * 1. Four possible client packet types: login, logout, input, chat.
+			 * 1. Three possible client packet types: input, chat, auth.
 			 * 2. First byte of all packet data must be MSG_<TYPE> integer.
-			 * 3. Input/logout/chat packets must come from a logged-in IP to be actioned.
+			 * 3. Packets other than auth handshake init must come from a logged-in IP.
 			 */
 			listen(time_remaining); 
 			if (buf[0] != '\0') {
@@ -114,12 +111,12 @@ int Server::run() {
 					
 					case MSG_INPUT:
 						std::cout << "[server] input received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
-						std::cout << buf;
+						handle_input_messages();
 						break;
 
 					case MSG_CHAT:
 						std::cout << "[server] chat received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
-						std::cout << buf;
+						handle_chat_messages();
 						break;
 
 					case MSG_AUTH:
@@ -130,19 +127,30 @@ int Server::run() {
 						std::cout << "[server] unknown message (" << buf[0] << ") from client " << std::endl;
 				}
 			}
-		}
-		// This should produce mostly consistent timings
-        // std::cout << "Idle time current tick: " << time_elapsed.count() << std::endl;   
+
+	        std::cout << "Processing time:" << time_elapsed.count() << std::endl;   
 		
-		finish = std::chrono::system_clock::now(); 
+			finish = std::chrono::system_clock::now(); 
+
+		}
 				
-        // World update based on input
-		// TODO
+        // Send state update packets to each client.
+		if (total_connected_clients > 0) {
+			std::cout << "[server] sending state update to clients" << std::endl;
+		}
 	}
 
 	close(s);
    return EXIT_SUCCESS;	
 
+}
+
+int Server::handle_input_messages() {
+	return 1;
+}
+
+int Server::handle_chat_messages() {
+	return 1;
 }
 
 int Server::handle_auth_messages() {
@@ -183,7 +191,7 @@ int Server::handle_auth_messages() {
 			// Check buf[USERNAME_MAX_LENGTH + 1] for intended action.
 			switch (buf[USERNAME_MAX_LENGTH + 1] - '0') {
 				
-				// Client sent login request, send challenge packet.
+				// Client sent auth init request, respond with challenge packet.
 				case AUTH_ACTION_INIT:
 					std::cout << "[server] auth init message received from " << username  << std::endl;	
 					slots[slot].connected = CONN_STATE_PENDING;
@@ -196,6 +204,7 @@ int Server::handle_auth_messages() {
 					if(verify_auth_hash(slots[slot].login_hash, buf)) {
 						std::cout << "[server] " << username << " authenticated" << std::endl;	
 						slots[slot].connected = CONN_STATE_CONNECTED;
+						total_connected_clients++;
 						send_success_message(slots[slot]);
 					} else {
 						std::cout << "[server] " << username << " failed to authenticate" << std::endl;	
@@ -209,6 +218,12 @@ int Server::handle_auth_messages() {
 				
 				// Client send disconnect request, terminate connection.
 				case AUTH_ACTION_DISCONNECT:
+					std::cout << "[server] " << username << " requested disconnection" << std::endl;	
+					send_terminate_message(slots[slot]);
+					ClientState empty_slot;
+					empty_slot.in_use = false;
+					slots[slot] = empty_slot;
+					total_connected_clients--;
 					break;
 			}
 		
@@ -219,8 +234,8 @@ int Server::handle_auth_messages() {
 		
 	// Deny if username not known
 	} else {
-		std::cout << "[server] username " << username << " does not exist." << std::endl;	
-
+		std::cout << "[server] username " << username << " does not exist." << std::endl;
+		send_terminate_message(slots[slot]);	
 	}
 
 
@@ -229,7 +244,6 @@ int Server::handle_auth_messages() {
 
 bool Server::verify_auth_hash(std::string actual, char* test) {
 
-	// Extract hash from message.
 	char str[SHA256_DIGEST_LENGTH*2];
 	memcpy(str, &test[USERNAME_MAX_LENGTH + 2], SHA256_DIGEST_LENGTH*2);
 	str[SHA256_DIGEST_LENGTH*2] = '\0';
@@ -253,12 +267,12 @@ int Server::send_success_message(ClientState client) {
 	// Copy formatted string to message buffer
 	strcpy(msg, s_msg.c_str());
 
-	std::cout  	<< "[server] sending auth success message to: \n"
-				<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
-				<< client.addr.sin_port << " (slot " << client.index << ")\n"
-				<< "         salt: " << client.login_salt << '\n'
-				<< "         hash: " << client.login_hash << '\n'
-				<< "         msg: " << msg << std::endl;
+	// std::cout  	<< "[server] sending auth success message to: \n"
+	// 			<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
+	// 			<< client.addr.sin_port << " (slot " << client.index << ")\n"
+	// 			<< "         salt: " << client.login_salt << '\n'
+	// 			<< "         hash: " << client.login_hash << '\n'
+	// 			<< "         msg: " << msg << std::endl;
 
 	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
 		std::cout << "[server] error when sending response packet" << std::endl;
@@ -269,30 +283,34 @@ int Server::send_success_message(ClientState client) {
 }
 
 int Server::send_terminate_message(ClientState client) {
-	std::cout << "[server] sending success message to " << client.username << std::endl;	
+
+	std::cout << "[server] sending termination message to " << client.username << std::endl;	
+
+	memset(msg,'\0', PACKET_SIZE);
+	
+	std::string s_msg;
+	s_msg += MSG_FORCE_TERMINATE + '0';
+	s_msg += client.login_salt;
+	
+	strcpy(msg, s_msg.c_str());
+
+	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
+		std::cout << "[server] error when sending response packet" << std::endl;
+		return EXIT_FAILURE;
+	}	
+
 	return 1;
 }
 
 int Server::send_challenge_message(ClientState client) {
 
-	// Clear message buffer
 	memset(msg,'\0', PACKET_SIZE);
 	
-	// First char is message type
-	// Next 32 chars is the clients salt
 	std::string s_msg;
 	s_msg += MSG_AUTH_CHALLENGE + '0';
 	s_msg += client.login_salt;
 	
-	// Copy formatted string to message buffer
 	strcpy(msg, s_msg.c_str());
-
-	// std::cout  	<< "[server] sending challenge to: \n"
-	// 			<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
-	// 			<< client.addr.sin_port << " (slot " << client.index << ")\n"
-	// 			<< "         salt: " << client.login_salt << '\n'
-	// 			<< "         hash: " << client.login_hash << '\n'
-	// 			<< "         msg: " << msg << std::endl;
 
 	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
 		std::cout << "[server] error when sending response packet" << std::endl;

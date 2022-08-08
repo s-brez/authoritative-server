@@ -7,6 +7,8 @@
 #define SERVER_DEFAULT_ADDRESS      "127.0.0.1"
 #define SERVER_DEFAULT_PORT         8080
 #define USERNAME_MAX_LENGTH         16
+#define TICKS_PER_SECOND_SERVER     1   // debug tick rate
+#define TICKS_PER_SECOND_CLIENT     1   // debug tick rate
 
 // Client connection states
 #define CONN_STATE_DISCONNECTED     0
@@ -30,7 +32,7 @@
 #define MSG_AUTH_SUCCESS            4
 #define MSG_FORCE_TERMINATE         5
 
-// Nothing-heard period (ms) before client auto-disconnect occurs
+// Nothing-heard period (seconds) before client auto-disconnect occurs
 #define DEFAULT_TIMEOUT             100
 
 // Must not exceed 508 or risk packet data fragmentation

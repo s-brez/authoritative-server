@@ -5,12 +5,8 @@
 
 #include <vector>
 
-// Human reaction time ~200ms, use half that as server tick rate.
-// #define TICKS_PER_SECOND        10
 
-#define TICKS_PER_SECOND        1   // debug tick rate
-
-// Max players server will allow to log in.
+// Max players server will allow to connect.
 #define MAX_PLAYERS             10
 
 // State container for individual client login status.
@@ -22,6 +18,7 @@ struct ClientState {
     std::string login_hash;         // SHA256(pwd + salt)
     std::string username;
     int index;                      // Location of this struct in ClientState slots array
+    int last_heard;                 // Time since last packed received from this client.
 };
 
 struct AccountInfo {
@@ -49,7 +46,7 @@ class Server    {
          */
         int                         listen(double timeout);
 
-        /** Authenticated message handler:
+        /** Authentication message handler:
          * 1. Client sends login/init request message.
          * 2. Server responds with ack and salt if client username known.
          * 3. Client sends hash of username + password + salt.
@@ -57,6 +54,9 @@ class Server    {
          * 5. Client also uses this protocol to logout
          */
         int                         handle_auth_messages();
+
+        int                         handle_chat_messages();
+        int                         handle_input_messages();
 
         /**
          * Check and update the clients connection status.
