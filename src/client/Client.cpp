@@ -55,6 +55,7 @@ int Client::run() {
 							std::cout << buf;
 					}
 				}
+
 			// Exit on error or timeout.
 			} else {
 				std::cout << "[client] connection timed out " << std::endl;
@@ -75,12 +76,13 @@ int Client::run() {
 
 						case MSG_AUTH_SUCCESS:
 							std::cout << "[client] sucessfully authenticated" << std::endl;
-							std::cout << buf;
+							connection = CONN_STATE_CONNECTED;
 							break;
 
 						case MSG_FORCE_TERMINATE:
-							std::cout << "[client] forcefully disconnected from server" << std::endl;
+							std::cout << "[client] disconnected from server" << std::endl;
 							std::cout << buf;
+							connection = CONN_STATE_DISCONNECTED;
 							break;
 						
 						default:
@@ -209,7 +211,7 @@ int Client::send_auth_verify_message() {
 
 int Client::send_auth_init_message() {
 
-	std::cout << "[client] sending login request" << std::endl;
+	std::cout << "[client] sending auth request" << std::endl;
 	
 	// Message format:  [MSG_AUTH]      [USERNAME + PADDING]         [AUTH_ACTION_INIT]
 	// at index:		    0	      1 to USERNAME_MAX_LENGTH	    USERNAME_MAX_LENGTH +1

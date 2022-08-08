@@ -132,7 +132,7 @@ int Server::run() {
 			}
 		}
 		// This should produce mostly consistent timings
-        // std::cout << "Time taken: " << time_elapsed.count() << std::endl;   
+        // std::cout << "Idle time current tick: " << time_elapsed.count() << std::endl;   
 		
 		finish = std::chrono::system_clock::now(); 
 				
@@ -194,15 +194,21 @@ int Server::handle_auth_messages() {
 				case AUTH_ACTION_VERIFY:
 					std::cout << "[server] checking " << username << " credentials" << std::endl;	
 					if(verify_auth_hash(slots[slot].login_hash, buf)) {
+						std::cout << "[server] " << username << " authenticated" << std::endl;	
 						slots[slot].connected = CONN_STATE_CONNECTED;
 						send_success_message(slots[slot]);
 					} else {
+						std::cout << "[server] " << username << " failed to authenticate" << std::endl;	
 						send_terminate_message(slots[slot]);
 						ClientState empty_slot;
 						empty_slot.in_use = false;
 						slots[slot] = empty_slot;
 					}
 					
+					break;
+				
+				// Client send disconnect request, terminate connection.
+				case AUTH_ACTION_DISCONNECT:
 					break;
 			}
 		
@@ -222,14 +228,48 @@ int Server::handle_auth_messages() {
 }
 
 bool Server::verify_auth_hash(std::string actual, char* test) {
-	return true;
+
+	// Extract hash from message.
+	char str[SHA256_DIGEST_LENGTH*2];
+	memcpy(str, &test[USERNAME_MAX_LENGTH + 2], SHA256_DIGEST_LENGTH*2);
+	str[SHA256_DIGEST_LENGTH*2] = '\0';
+	std::string incoming = str;
+
+	return actual == incoming;
 }
 
 int Server::send_success_message(ClientState client) {
+	std::cout << "[server] sending success message to " << client.username << std::endl;	
+	
+	// Clear message buffer
+	memset(msg,'\0', PACKET_SIZE);
+	
+	// First char is message type
+	// Next 32 chars is the clients salt
+	std::string s_msg;
+	s_msg += MSG_AUTH_SUCCESS + '0';
+	s_msg += client.login_salt;
+	
+	// Copy formatted string to message buffer
+	strcpy(msg, s_msg.c_str());
+
+	std::cout  	<< "[server] sending auth success message to: \n"
+				<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
+				<< client.addr.sin_port << " (slot " << client.index << ")\n"
+				<< "         salt: " << client.login_salt << '\n'
+				<< "         hash: " << client.login_hash << '\n'
+				<< "         msg: " << msg << std::endl;
+
+	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
+		std::cout << "[server] error when sending response packet" << std::endl;
+		return EXIT_FAILURE;
+	}	
+
 	return 1;
 }
 
 int Server::send_terminate_message(ClientState client) {
+	std::cout << "[server] sending success message to " << client.username << std::endl;	
 	return 1;
 }
 
@@ -247,12 +287,12 @@ int Server::send_challenge_message(ClientState client) {
 	// Copy formatted string to message buffer
 	strcpy(msg, s_msg.c_str());
 
-	std::cout  	<< "[server] sending challenge to: \n"
-				<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
-				<< client.addr.sin_port << " (slot" << client.index << ")\n"
-				<< "         salt: " << client.login_salt << '\n'
-				<< "         hash: " << client.login_hash << '\n'
-				<< "         msg: " << msg << std::endl;
+	// std::cout  	<< "[server] sending challenge to: \n"
+	// 			<< "         " << client.username << " at " << inet_ntoa(client.addr.sin_addr) << ":" 
+	// 			<< client.addr.sin_port << " (slot " << client.index << ")\n"
+	// 			<< "         salt: " << client.login_salt << '\n'
+	// 			<< "         hash: " << client.login_hash << '\n'
+	// 			<< "         msg: " << msg << std::endl;
 
 	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
 		std::cout << "[server] error when sending response packet" << std::endl;

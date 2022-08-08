@@ -31,9 +31,9 @@
 #define MSG_FORCE_TERMINATE         5
 
 // Nothing-heard period (ms) before client auto-disconnect occurs
-#define DEFAULT_TIMEOUT             10
+#define DEFAULT_TIMEOUT             100
 
-// Must not exceed 508 or risk paclet data fragmentation
+// Must not exceed 508 or risk packet data fragmentation
 #define PACKET_SIZE                 256
 
 #include <chrono>

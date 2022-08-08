@@ -6,7 +6,9 @@
 #include <vector>
 
 // Human reaction time ~200ms, use half that as server tick rate.
-#define TICKS_PER_SECOND        10
+// #define TICKS_PER_SECOND        10
+
+#define TICKS_PER_SECOND        1   // debug tick rate
 
 // Max players server will allow to log in.
 #define MAX_PLAYERS             10
