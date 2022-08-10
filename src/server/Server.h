@@ -44,19 +44,19 @@ class Server    {
          * Blocking for duration of timeout, or packet receival, or error.
          * Writes packet message to char* buffer "buf", if packets exist.
          */
-        int                         listen(double timeout);
+        int                         listen();
 
-        /** Authentication message handler:
+        /** Authentication message process:
          * 1. Client sends login/init request message.
          * 2. Server responds with ack and salt if client username known.
          * 3. Client sends hash of username + password + salt.
          * 4. If hash matches, client IP logged in until timeout or logout.
          * 5. Client also uses this protocol to logout
          */
-        int                         handle_auth_messages();
+        int                         process_auth_packet();
 
-        int                         handle_chat_messages();
-        int                         handle_input_messages();
+        int                         process_chat_packet();
+        int                         process_input_packet();
 
         /**
          * Check and update the clients connection status.
@@ -64,7 +64,7 @@ class Server    {
          */
         int                         allocate_client_connection_slot(std::string username, sockaddr_in address);
 
-        bool                        verify_auth_hash(std::string actual, char* test);
+        bool                        verify_auth_hash(std::string actual, char* test);			
 
         /**
          * Send respective packet to client.
@@ -73,6 +73,7 @@ class Server    {
         int                         send_challenge_message(ClientState client);
         int                         send_success_message(ClientState client);
         int                         send_terminate_message(ClientState client);
+        int                         send_state_update(ClientState client);
 
         bool                        running();       
 
@@ -94,11 +95,10 @@ class Server    {
         // Container for active client states.
         ClientState                 slots[MAX_PLAYERS];
 
-        
-    
+
     private:
         int                         total_connected_clients;
-        bool                        is_running;        
+        bool                        should_run;        
         std::vector<std::string>    usernames;
         std::vector<AccountInfo>    accounts;
 

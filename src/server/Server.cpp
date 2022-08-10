@@ -15,10 +15,16 @@ Server::Server(const char* address, int port) {
 	s = sizeof(s_info_client);
 	send_len = sizeof(s_info_client);
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)	{
-		is_running = false;
+		should_run = false;
 		std::cout << "[server] failed to create socket" << std::endl;
-	} else {is_running = true;}
+	} else {should_run = true;}
 	
+	// Set socket timeout.
+	struct timeval t;
+	t.tv_sec = 0;
+	t.tv_usec = 10;
+	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char*)&t, sizeof t);
+
 	// Store address/port details
 	memset((char *) &s_info_server, 0, sizeof(s_info_server));
 	s_info_server.sin_family = AF_INET;
@@ -28,14 +34,14 @@ Server::Server(const char* address, int port) {
 
 	// Bind socket to specified port.
 	if(bind(s, (struct sockaddr*)&s_info_server, sizeof(s_info_server) ) == -1){
-		is_running = false;
+		should_run = false;
 		std::cout << "[server] failed to bind socket" << std::endl;
-	} else {is_running = true;}
+	} else {should_run = true;}
 
 	// Fetch known account details for login auth.
 	if (update_known_accounts()) {
 		std::cout << "[server] failed to fetch user accounts" << std::endl;
-	} else {is_running = true;}
+	} else {should_run = true;}
 
 	// Set client connection slots to empty
 	total_connected_clients = 0;
@@ -53,15 +59,7 @@ Server::~Server() {
 
 Server::Server() {}
 
-int Server::listen(double timeout) {
-
-	// std::cout << "Time remaining: " << timeout << std::endl;    
-
-	// Set socket timeout
-	struct timeval t;
-	t.tv_sec = 0;
-	t.tv_usec = timeout * 1000000;
-	setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char*)&t, sizeof t);
+int Server::listen() {
 
 	// Clear buffer and receive message.
 	memset(buf,'\0', PACKET_SIZE);
@@ -69,75 +67,83 @@ int Server::listen(double timeout) {
 	
 	// Timeout or error
 	if (recv_len == -1)	{
-		return EXIT_FAILURE;	
+		return false;	
 	
 	// Success
 	} else {
-	
+		return true;
 	}
 
-	return EXIT_SUCCESS;
 }
 
 int Server::run() {
 	
-	double seconds_per_tick = 1.0f / TICKS_PER_SECOND_SERVER;
-	double time_remaining;
-	std::chrono::system_clock::time_point start; 
-	std::chrono::system_clock::time_point finish;
-	std::chrono::duration<double, std::milli> time_elapsed;
-	while(is_running)	{
-		
-		// State updates sent at (1 / TICKS_PER_SECOND_SERVER) intervals.
-        finish = std::chrono::system_clock::now();
-		start = std::chrono::system_clock::now();
-        time_elapsed = start - finish;
-		while (time_elapsed.count() < seconds_per_tick) {
-            
-            start = std::chrono::system_clock::now();
-            time_elapsed = start - finish;
-			time_remaining = seconds_per_tick - time_elapsed.count();
-			
-			std::cout << "Listening for: " << time_remaining << std::endl;   
+	double ms_per_tick = 1000 / TICKS_PER_SECOND_SERVER;
 
-			/** Packet validation rules: 
-			 * 1. Three possible client packet types: input, chat, auth.
-			 * 2. First byte of all packet data must be MSG_<TYPE> integer.
-			 * 3. Packets other than auth handshake init must come from a logged-in IP.
-			 */
-			listen(time_remaining); 
+	std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+	std::chrono::system_clock::time_point finish = std::chrono::system_clock::now();
+	std::chrono::duration<double, std::milli> processing_time;
+
+	while(should_run)	{
+
+		start = std::chrono::system_clock::now();
+		processing_time = start - finish;
+		
+		// std::cout << "processing time: " << processing_time.count() << std::endl;
+
+		if(processing_time.count() < ms_per_tick) {
+			std::chrono::duration<double, std::milli> delta(ms_per_tick - processing_time.count());
+			auto delta_duration = std::chrono::duration_cast<std::chrono::milliseconds>(delta);
+			// std::cout << "sleep for " << delta_duration.count() << std::endl;
+			std::this_thread::sleep_for(std::chrono::milliseconds(delta_duration.count()));
+		}
+
+		finish = std::chrono::system_clock::now();
+        std::chrono::duration<double, std::milli> sleep_time = finish - start;
+
+		/** Packet validation rules: 
+		 * 1. Three possible client packet types: input, chat, auth.
+		 * 2. First byte of all packet data must be MSG_<TYPE> integer.
+		 * 3. Packets other than auth handshake init must come from a logged-in IP.
+		 */
+		while(listen()) {
 			if (buf[0] != '\0') {
 				switch (buf[0] - '0') {  // Convert char byte to int for type checking
 					
 					case MSG_INPUT:
-						std::cout << "[server] input received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
-						handle_input_messages();
+						// std::cout << "[server] input received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
+						process_input_packet();
 						break;
 
 					case MSG_CHAT:
-						std::cout << "[server] chat received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
-						handle_chat_messages();
+						// std::cout << "[server] chat received from client " << inet_ntoa(s_info_client.sin_addr) << std::endl;
+						process_chat_packet();
 						break;
 
 					case MSG_AUTH:
-						handle_auth_messages();
+						process_auth_packet();
 						break;
 				
 					default:
 						std::cout << "[server] unknown message (" << buf[0] << ") from client " << std::endl;
 				}
 			}
-
-	        std::cout << "Processing time:" << time_elapsed.count() << std::endl;   
-		
-			finish = std::chrono::system_clock::now(); 
-
 		}
-				
-        // Send state update packets to each client.
+
+		// Send state update packets to clients and subtract last heard.
 		if (total_connected_clients > 0) {
-			std::cout << "[server] sending state update to clients" << std::endl;
+			std::cout << "[server] broadcasting state update" << std::endl;
+			for (int i = 0; i < MAX_PLAYERS; i++) {
+				if (slots[i].in_use) {
+					// std::cout << inet_ntoa(slots[i].addr.sin_addr) << " " << slots[i].addr.sin_port <<std::endl;
+					send_state_update(slots[i]);
+				}
+			}
 		}
+
+
+
+		// std::cout << "Time: " << processing_time.count() + sleep_time.count() << std::endl;
 	}
 
 	close(s);
@@ -145,15 +151,92 @@ int Server::run() {
 
 }
 
-int Server::handle_input_messages() {
+int Server::send_state_update(ClientState client) {
+
+	// Single packet messages:
+	// Message format:  [MSG_STATE_UPDATE]      [update data]
+	// at index:		        0	          1 to end of buffer
+
+	// For infrequent large updates use multiple slice protocol.
+
+	// --------------------------
+	// ** Serialise state here **
+
+	std::string state_data = "This is test state update data.";
+	
+	// ** Serialise state here **
+	// --------------------------
+
+	// Clear message buffer
+	memset(msg,'\0', PACKET_SIZE);
+
+	// Format packet
+	std::string payload = "";
+	payload += MSG_STATE_UPDATE + '0';
+	payload += client.username;
+	int len = client.username.length();
+	if (len < USERNAME_MAX_LENGTH) {
+		payload += std::string(USERNAME_MAX_LENGTH - len, ' ');
+	}
+	payload += " " + state_data; 
+	strcpy(msg, payload.c_str());
+
+	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
+		std::cout << "[server] error when sending state packet" << std::endl;
+		memset(msg,'\0', PACKET_SIZE);
+		return EXIT_FAILURE;
+	}	
+
+	memset(msg,'\0', PACKET_SIZE);
 	return 1;
 }
 
-int Server::handle_chat_messages() {
+int Server::process_input_packet() {
+
+	// Extract username from message buffer.
+	char str[USERNAME_MAX_LENGTH];
+	memcpy(str, &buf[1], USERNAME_MAX_LENGTH);
+	std::string padded_username = str;
+	std::string username;	
+	str[USERNAME_MAX_LENGTH] = '\0';
+
+	// Stop when ' ' or USERNAME_MAX_LENGTH is reached.
+	bool done = false;
+	for (int i = 0; i < USERNAME_MAX_LENGTH && !done; i ++) {
+		if (padded_username[i] != ' ') {
+			username += padded_username[i];
+		} else {
+			done = true;
+		}
+	}
+	
+	// Sender IP must match stored IP and username.
+	done = false;
+	bool valid = false;
+	for (int i = 0; i < MAX_PLAYERS && !done; i++ ) {
+        if (slots[i].in_use) {
+			if (slots[i].username == username) {
+				slots[i].last_heard = LAST_HEARD_TIMEOUT;
+				done = true;
+				if (inet_ntoa(slots[i].addr.sin_addr) == inet_ntoa(s_info_client.sin_addr)) {
+					valid = true;
+				}
+			}
+		}
+	}
+
+	if (valid) {
+		// Do something with input here.
+	}
+
 	return 1;
 }
 
-int Server::handle_auth_messages() {
+int Server::process_chat_packet() {
+	return 1;
+}
+
+int Server::process_auth_packet() {
 
 	/** 
 	 * Auth handshake & message validation: 
@@ -175,11 +258,20 @@ int Server::handle_auth_messages() {
 	// Extract username from message buffer.
 	char str[USERNAME_MAX_LENGTH];
 	memcpy(str, &buf[1], USERNAME_MAX_LENGTH);
-	std::string username = str;
+	std::string padded_username = str;
+	std::string username;	
 	str[USERNAME_MAX_LENGTH] = '\0';
-	username.erase(std::remove(username.begin(), username.end(), ' '), username.end());
-	username.erase(std::remove(username.begin(), username.end(), '\n'), username.end());
-	
+
+	// Stop when ' ' or USERNAME_MAX_LENGTH is reached.
+	bool done = false;
+	for (int i = 0; i < USERNAME_MAX_LENGTH && !done; i ++) {
+		if (padded_username[i] != ' ') {
+			username += padded_username[i];
+		} else {
+			done = true;
+		}
+	}
+
 	// Check client connection state.
 	int slot = -1;
 	if (std::find(usernames.begin(), usernames.end(), username) != usernames.end()) {
@@ -204,6 +296,7 @@ int Server::handle_auth_messages() {
 					if(verify_auth_hash(slots[slot].login_hash, buf)) {
 						std::cout << "[server] " << username << " authenticated" << std::endl;	
 						slots[slot].connected = CONN_STATE_CONNECTED;
+						slots[slot].last_heard = LAST_HEARD_TIMEOUT;
 						total_connected_clients++;
 						send_success_message(slots[slot]);
 					} else {
@@ -237,7 +330,6 @@ int Server::handle_auth_messages() {
 		std::cout << "[server] username " << username << " does not exist." << std::endl;
 		send_terminate_message(slots[slot]);	
 	}
-
 
 	return EXIT_SUCCESS;
 }
@@ -276,9 +368,11 @@ int Server::send_success_message(ClientState client) {
 
 	if (sendto(s, msg, strlen(msg), 0, (struct sockaddr*) &client.addr, send_len) == -1)	{
 		std::cout << "[server] error when sending response packet" << std::endl;
+		memset(msg,'\0', PACKET_SIZE);
 		return EXIT_FAILURE;
 	}	
-
+	
+	memset(msg,'\0', PACKET_SIZE);
 	return 1;
 }
 
@@ -365,17 +459,7 @@ int Server::allocate_client_connection_slot(std::string username, sockaddr_in ip
 		return first_free_slot;
 	} 
 
-
-	// Debug: print clients
-	// std::cout << "[server] logged in or pending clients:" << std::endl;
-	// for (int i = 0; i < MAX_PLAYERS; i++ ) {
-	// 	if (slots[i].in_use) {
-	// 		std::cout << "    " << slots[i].username << std::endl;
-	// 	}	
-	// }
-
-
-	// Return error if no free slots and client not allocated.
+	// Error case if no free slots and client not allocated.
 	return EXIT_FAILURE;
 }
 
@@ -415,4 +499,4 @@ int Server::update_known_accounts() {
 
 }
 
-bool Server::running()  {return is_running;}
+bool Server::running()  {return should_run;}
