@@ -63,7 +63,7 @@ int Server::listen() {
 
 	// Clear buffer and receive message.
 	memset(buf,'\0', PACKET_SIZE);
-	recv_len = recvfrom(s, buf, PACKET_SIZE, 0, (struct sockaddr *) &s_info_client,  (socklen_t*)&send_len);
+	recv_len = recvfrom(s, buf, PACKET_SIZE, 0, (struct sockaddr *) &s_info_client, (socklen_t*)&send_len);
 	
 	// Timeout or error
 	if (recv_len == -1)	{
@@ -130,12 +130,13 @@ int Server::run() {
 			}
 		}
 
-		// Send state update packets to clients and subtract last heard.
+		// Send state update packets to clients and decrement last heard.
 		if (total_connected_clients > 0) {
 			std::cout << "[server] broadcasting state update" << std::endl;
 			for (int i = 0; i < MAX_PLAYERS; i++) {
 				if (slots[i].in_use) {
 					// std::cout << inet_ntoa(slots[i].addr.sin_addr) << " " << slots[i].addr.sin_port <<std::endl;
+					slots[i].last_heard  -= ms_per_tick;
 					send_state_update(slots[i]);
 				}
 			}

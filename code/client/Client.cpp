@@ -199,7 +199,7 @@ int Client::process_state_update_packet() {
 
 int Client::send_input() {
 	
-	std::cout << "[client] sending input to:" << std::endl;
+	std::cout << "[client] sending input" << std::endl;
 	// std::cout << inet_ntoa(s_info_server.sin_addr) << " " << s_info_server.sin_port <<std::endl;
 
 	// --------------------------
